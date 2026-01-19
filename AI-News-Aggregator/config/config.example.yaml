@@ -1,0 +1,67 @@
+# AI News Aggregator Configuration
+
+telegram:
+  # Get these from https://my.telegram.org
+  apiId: 12345678
+  apiHash: "your_api_hash_here"
+
+  # Create a bot via @BotFather
+  botToken: "your_bot_token_here"
+
+  # Channel where digest will be posted (bot must be admin)
+  outputChannel: "@your_news_channel"
+
+ai:
+  # Get from https://console.anthropic.com
+  apiKey: "your_anthropic_api_key"
+  model: "claude-sonnet-4-20250514"
+
+  # Trusted sources for fact-checking
+  factCheckSources:
+    - "reuters.com"
+    - "apnews.com"
+    - "snopes.com"
+    - "factcheck.org"
+
+schedule:
+  # When to collect news (24h format)
+  collectTime: "06:00"
+
+  # When to publish digest
+  publishTime: "08:00"
+
+  # Timezone
+  timezone: "UTC"
+
+sources:
+  # Telegram channels to monitor
+  telegram:
+    channels:
+      - username: "@techcrunch"
+        name: "TechCrunch"
+      - username: "@bbcworld"
+        name: "BBC World"
+      - username: "@crypto"
+        name: "Crypto News"
+
+  # Websites to scrape
+  websites:
+    - name: "Hacker News"
+      url: "https://news.ycombinator.com"
+      articleSelector: ".athing"
+      titleSelector: ".titleline > a"
+
+    - name: "TechCrunch"
+      url: "https://techcrunch.com"
+      articleSelector: "article.post-block"
+      titleSelector: "h2.post-block__title a"
+      contentSelector: ".post-block__content"
+
+  # RSS/Atom feeds
+  rss:
+    - url: "https://feeds.bbci.co.uk/news/rss.xml"
+      name: "BBC News"
+    - url: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"
+      name: "NY Times World"
+    - url: "https://feeds.arstechnica.com/arstechnica/index"
+      name: "Ars Technica"
