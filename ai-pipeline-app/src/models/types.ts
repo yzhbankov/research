@@ -113,7 +113,7 @@ export interface Guardrail {
 /** A node in the pipeline graph (visual + logical) */
 export interface PipelineNode {
   id: string;
-  type: 'agent' | 'input' | 'output' | 'condition' | 'loop' | 'parallel';
+  type: 'agent' | 'input' | 'output' | 'condition' | 'loop' | 'parallel' | 'code';
   position: { x: number; y: number };
   data: PipelineNodeData;
 }
@@ -126,6 +126,7 @@ export interface PipelineNodeData {
   conditionConfig?: ConditionConfig;
   loopConfig?: LoopConfig;
   parallelConfig?: ParallelConfig;
+  codeConfig?: CodeExecutionConfig;
 }
 
 /** Input node: provides initial data to the pipeline */
@@ -160,6 +161,15 @@ export interface LoopConfig {
 export interface ParallelConfig {
   strategy: 'all' | 'race' | 'any';
   maxConcurrency: number;
+}
+
+/** Code execution node configuration */
+export interface CodeExecutionConfig {
+  language: 'javascript';
+  timeout: number; // milliseconds
+  allowNetwork: boolean;
+  /** When code fails, ask the upstream agent to fix it and retry (max attempts) */
+  autoFixRetries: number;
 }
 
 /** Connection between two nodes */
@@ -202,6 +212,9 @@ export interface Pipeline {
   tags: string[];
   isPublic: boolean;
   isTemplate: boolean;
+
+  /** Example input text pre-filled when loading this pipeline as a template */
+  sampleInput?: string;
 }
 
 export interface PipelineSettings {

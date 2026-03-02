@@ -12,16 +12,14 @@ import {
   PipelineNode,
   PipelineEdge,
   PipelineExecution,
-  NodeExecution,
   ExecutionStatus,
   ExecutionMetrics,
   AgentConfig,
-  TokenUsage,
 } from '../models/types';
-import { AIProviderAdapter, createProviderAdapter } from './providers';
+import { createProviderAdapter } from './providers';
 import { EventEmitter } from './EventEmitter';
 
-export interface EngineEvents {
+export interface EngineEvents extends Record<string, unknown> {
   'pipeline:start': { executionId: string; pipelineId: string };
   'pipeline:complete': { executionId: string; metrics: ExecutionMetrics };
   'pipeline:error': { executionId: string; error: string };
@@ -93,6 +91,17 @@ export class PipelineEngine {
           );
           outputMap.set(node.id, { ...nodeInput as object, __branch: result });
           this.markNodeComplete(execution, node.id, outputMap.get(node.id));
+        } else if (node.type === 'code' && node.data.codeConfig) {
+          const result = await this.executeCodeNodeWithRetry(
+            execution,
+            pipeline,
+            node,
+            nodeInput,
+            outputMap,
+            apiKeys,
+            abortController.signal
+          );
+          outputMap.set(node.id, result);
         } else if (node.type === 'output') {
           outputMap.set(node.id, nodeInput);
           this.markNodeComplete(execution, node.id, nodeInput);
@@ -173,6 +182,13 @@ export class PipelineEngine {
       this.topologicalSort(pipeline.nodes, pipeline.edges);
     } catch {
       errors.push('Pipeline contains a cycle — execution order cannot be determined');
+    }
+
+    // Check code nodes have configs
+    for (const node of pipeline.nodes.filter((n) => n.type === 'code')) {
+      if (!node.data.codeConfig) {
+        errors.push(`Code node "${node.data.label}" (${node.id}) has no configuration`);
+      }
     }
 
     // Check agent nodes have configs
@@ -320,6 +336,192 @@ export class PipelineEngine {
     });
 
     throw lastError;
+  }
+
+  /**
+   * Execute a code node. If it fails and autoFixRetries > 0, find the upstream
+   * agent that produced the code, send it the error, get corrected code, and retry.
+   */
+  private async executeCodeNodeWithRetry(
+    execution: PipelineExecution,
+    pipeline: Pipeline,
+    node: PipelineNode,
+    initialInput: unknown,
+    outputMap: Map<string, unknown>,
+    apiKeys: Record<string, string>,
+    signal: AbortSignal
+  ): Promise<unknown> {
+    const config = node.data.codeConfig!;
+    const maxAttempts = (config.autoFixRetries ?? 0) + 1;
+    let currentInput = initialInput;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        // Reset node execution state for each attempt
+        const nodeExec = execution.nodeExecutions.find((n) => n.nodeId === node.id)!;
+        nodeExec.status = 'idle' as ExecutionStatus;
+        nodeExec.error = undefined;
+        nodeExec.output = undefined;
+
+        return await this.executeCodeNode(execution, node, currentInput, signal);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        const isLastAttempt = attempt >= maxAttempts - 1;
+
+        if (isLastAttempt) throw err;
+
+        // Find the upstream agent node that feeds into this code node
+        const incomingEdge = pipeline.edges.find((e) => e.target === node.id);
+        if (!incomingEdge) throw err;
+
+        const sourceNode = pipeline.nodes.find(
+          (n) => n.id === incomingEdge.source && n.type === 'agent' && n.data.agentConfig
+        );
+        if (!sourceNode || !sourceNode.data.agentConfig) throw err;
+
+        // Re-run the agent with the error feedback
+        const failedCode = typeof currentInput === 'string' ? currentInput : JSON.stringify(currentInput);
+        const fixPrompt =
+          `The JavaScript code you generated failed with this error:\n\n` +
+          `--- ERROR ---\n${errorMsg}\n--- END ERROR ---\n\n` +
+          `--- FAILED CODE ---\n${failedCode}\n--- END CODE ---\n\n` +
+          `Fix the code so it works correctly. Output ONLY the corrected raw JavaScript code, no markdown, no explanation. Use return to return the result.`;
+
+        // Emit a retry event so the UI can show what's happening
+        this.events.emit('node:error', {
+          executionId: execution.id,
+          nodeId: node.id,
+          error: `Attempt ${attempt + 1} failed: ${errorMsg} — asking agent to fix...`,
+        });
+
+        const fixedCode = await this.executeAgentNode(
+          execution,
+          sourceNode,
+          sourceNode.data.agentConfig,
+          fixPrompt,
+          apiKeys,
+          signal
+        );
+
+        // Update the outputMap for the agent so NodeIOPanel shows the latest
+        outputMap.set(sourceNode.id, fixedCode);
+
+        currentInput = fixedCode;
+      }
+    }
+
+    // Should not reach here
+    throw new Error('Code execution failed after all retries');
+  }
+
+  private async executeCodeNode(
+    execution: PipelineExecution,
+    node: PipelineNode,
+    input: unknown,
+    signal: AbortSignal
+  ): Promise<unknown> {
+    const nodeExec = execution.nodeExecutions.find((n) => n.nodeId === node.id)!;
+    const config = node.data.codeConfig!;
+    nodeExec.status = 'running';
+    nodeExec.startedAt = new Date().toISOString();
+    nodeExec.input = input;
+
+    this.events.emit('node:start', {
+      executionId: execution.id,
+      nodeId: node.id,
+    });
+
+    try {
+      if (signal.aborted) throw new Error('Execution cancelled');
+
+      const code = typeof input === 'string' ? input : JSON.stringify(input);
+      const logs: string[] = [];
+
+      // Build a sandboxed execution environment
+      const scopeVars: Record<string, unknown> = {
+        input: input,
+        console: { log: (...args: unknown[]) => logs.push(args.map(String).join(' ')) },
+      };
+      if (config.allowNetwork) {
+        // Provide a CORS-proxy-aware fetch: external URLs are routed through
+        // the dev-server proxy at /api/cors-proxy?url=... so the browser
+        // doesn't block cross-origin requests.
+        const proxiedFetch: typeof globalThis.fetch = (urlOrReq, init?) => {
+          let url: string;
+          if (typeof urlOrReq === 'string') {
+            url = urlOrReq;
+          } else if (urlOrReq instanceof URL) {
+            url = urlOrReq.toString();
+          } else {
+            url = urlOrReq.url;
+          }
+
+          // Only proxy absolute http(s) URLs pointing at external hosts
+          if (/^https?:\/\//i.test(url) && !url.startsWith(window.location.origin)) {
+            const proxyUrl = `/api/cors-proxy?url=${encodeURIComponent(url)}`;
+            return globalThis.fetch(proxyUrl, init);
+          }
+          return globalThis.fetch(urlOrReq, init);
+        };
+        scopeVars.fetch = proxiedFetch;
+      }
+
+      const paramNames = Object.keys(scopeVars);
+      const paramValues = Object.values(scopeVars);
+
+      // Wrap the code: if the input looks like code, execute it; otherwise treat it as data
+      const isCode = /^\s*(\/\/|\/\*|import |export |const |let |var |function |async |class |return |await |fetch\s*\(|try\s*\{)/.test(code);
+      const bodyCode = isCode
+        ? `${code}`
+        : `return input;`;
+
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+      const fn = new AsyncFunction(...paramNames, bodyCode);
+
+      // Execute with timeout
+      const timeoutMs = config.timeout || 10000;
+      const result = await Promise.race([
+        fn(...paramValues),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Code execution timed out after ${timeoutMs}ms`)), timeoutMs)
+        ),
+      ]);
+
+      const output = result !== undefined ? result : (logs.length > 0 ? logs.join('\n') : null);
+
+      nodeExec.status = 'completed';
+      nodeExec.completedAt = new Date().toISOString();
+      nodeExec.output = output;
+      nodeExec.duration =
+        new Date(nodeExec.completedAt).getTime() -
+        new Date(nodeExec.startedAt!).getTime();
+
+      this.events.emit('node:complete', {
+        executionId: execution.id,
+        nodeId: node.id,
+        output,
+      });
+
+      return output;
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      nodeExec.status = 'failed';
+      nodeExec.completedAt = new Date().toISOString();
+      nodeExec.error = {
+        code: 'CODE_EXECUTION_FAILED',
+        message: errorMsg,
+        recoverable: false,
+      };
+
+      this.events.emit('node:error', {
+        executionId: execution.id,
+        nodeId: node.id,
+        error: errorMsg,
+      });
+
+      throw err;
+    }
   }
 
   private gatherNodeInput(

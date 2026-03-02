@@ -50,7 +50,7 @@ class OpenAIAdapter implements AIProviderAdapter {
   constructor(private apiKey: string) {}
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('/api/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -151,12 +151,13 @@ class AnthropicAdapter implements AIProviderAdapter {
   constructor(private apiKey: string) {}
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/anthropic/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': this.apiKey,
         'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
         model: request.model,
@@ -187,6 +188,53 @@ class AnthropicAdapter implements AIProviderAdapter {
         ),
       },
       finishReason: data.stop_reason,
+    };
+  }
+}
+
+// ============================================================================
+// Google Gemini Adapter
+// ============================================================================
+
+class GoogleAdapter implements AIProviderAdapter {
+  constructor(private apiKey: string) {}
+
+  async chat(request: ChatRequest): Promise<ChatResponse> {
+    const response = await fetch(
+      `/api/google/v1beta/models/${request.model}:generateContent?key=${this.apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: request.systemPrompt }] },
+          contents: [{ parts: [{ text: request.userMessage }] }],
+          generationConfig: {
+            temperature: request.temperature,
+            maxOutputTokens: request.maxTokens,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Google AI API error (${response.status}): ${errorBody}`);
+    }
+
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    const promptTokens = data.usageMetadata?.promptTokenCount ?? 0;
+    const completionTokens = data.usageMetadata?.candidatesTokenCount ?? 0;
+
+    return {
+      content: text,
+      usage: {
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+        estimatedCost: estimateCost(request.model, promptTokens, completionTokens),
+      },
+      finishReason: data.candidates?.[0]?.finishReason ?? 'STOP',
     };
   }
 }
@@ -233,6 +281,8 @@ export function createProviderAdapter(provider: AIProvider, apiKey: string): AIP
       return new OpenAIAdapter(apiKey);
     case 'anthropic':
       return new AnthropicAdapter(apiKey);
+    case 'google':
+      return new GoogleAdapter(apiKey);
     case 'local':
     case 'custom':
       return new MockAdapter();

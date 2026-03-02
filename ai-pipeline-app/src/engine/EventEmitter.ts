@@ -2,7 +2,7 @@
 
 type Handler<T> = (data: T) => void;
 
-export class EventEmitter<Events extends Record<string, unknown>> {
+export class EventEmitter<Events extends Record<string, unknown> = Record<string, unknown>> {
   private listeners = new Map<keyof Events, Set<Handler<never>>>();
 
   on<K extends keyof Events>(event: K, handler: Handler<Events[K]>): () => void {
