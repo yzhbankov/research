@@ -308,6 +308,316 @@ When consumers cannot keep up with producers, streaming systems need mechanisms 
 
 ---
 
+## Streaming Technologies Deep Dive
+
+This section walks through streaming technologies from the most fundamental transport-level primitives to sophisticated distributed platforms. Understanding the full spectrum helps you choose the right tool for your specific latency, throughput, durability, and complexity requirements.
+
+---
+
+### TCP Streaming
+
+**How it works**: TCP (Transmission Control Protocol) provides a reliable, ordered, byte-stream connection between two endpoints. A server binds to a port, accepts connections, and data flows as a continuous stream of bytes in both directions. TCP handles retransmission of lost packets, flow control (sliding window), and congestion control automatically at the OS kernel level.
+
+**Key characteristics**:
+- Reliable, ordered delivery guaranteed by the protocol
+- Connection-oriented (requires a handshake before data flows)
+- Built-in flow control and congestion control
+- Byte-stream abstraction (no message boundaries)
+
+**Limitations**:
+- Point-to-point only — no native multicast or pub/sub
+- Head-of-line blocking: a single lost packet stalls the entire stream until retransmitted
+- Connection overhead: the three-way handshake adds latency for short-lived connections
+- No built-in message framing — applications must define their own protocol for message boundaries
+- Does not scale beyond a single connection without application-level coordination
+
+**When to use**: Custom low-level streaming protocols, simple producer-consumer pairs on a local network, building blocks for higher-level protocols. Use when you need reliable delivery between two known endpoints and are willing to handle framing and routing yourself.
+
+---
+
+### UDP Streaming
+
+**How it works**: UDP (User Datagram Protocol) sends discrete packets (datagrams) between endpoints without establishing a connection. Each datagram is independent — there is no guarantee of delivery, ordering, or duplicate protection. The sender simply fires packets at a destination address and port.
+
+**Key characteristics**:
+- Connectionless — no handshake required
+- Datagram-based with clear message boundaries
+- Supports multicast and broadcast
+- Minimal protocol overhead (8-byte header vs. 20+ for TCP)
+
+**Limitations**:
+- No delivery guarantee — packets can be lost, duplicated, or arrive out of order
+- No built-in flow control or congestion control — the application must handle these
+- Maximum datagram size limited by MTU (typically ~1,472 bytes on Ethernet before fragmentation)
+- No built-in reliability — applications must implement their own ACK/retransmit logic if needed
+
+**When to use**: Real-time media streaming (audio/video) where low latency matters more than perfect delivery, online gaming, DNS queries, IoT telemetry where occasional data loss is acceptable, and as a foundation for protocols like WebRTC, SRT, and QUIC that add selective reliability on top of UDP.
+
+---
+
+### Unix Domain Sockets and Named Pipes
+
+**How it works**: Unix domain sockets provide inter-process communication (IPC) on the same host using the filesystem namespace instead of network addresses. They support both stream (SOCK_STREAM, like TCP) and datagram (SOCK_DGRAM, like UDP) modes. Named pipes (FIFOs) provide a simpler unidirectional byte-stream between processes via a filesystem path.
+
+**Key characteristics**:
+- Extremely low latency — no network stack overhead
+- Higher throughput than TCP loopback (no TCP/IP header processing, checksumming, or routing)
+- File-permission-based access control
+- Stream or datagram semantics available (domain sockets)
+
+**Limitations**:
+- Single-host only — cannot communicate across a network
+- No built-in pub/sub, routing, or load balancing
+- Named pipes are unidirectional (need two for bidirectional communication)
+- Not portable to all operating systems in the same way (Windows uses a different mechanism)
+
+**When to use**: High-performance IPC on a single machine — e.g., a web server communicating with a local application server, container sidecar proxies, database client connections (PostgreSQL, MySQL, Redis all support Unix sockets for local connections).
+
+---
+
+### MQTT (Message Queuing Telemetry Transport)
+
+**How it works**: MQTT is a lightweight publish-subscribe messaging protocol designed for constrained devices and unreliable networks. Clients connect to a central broker, subscribe to topic filters, and publish messages to topics. The broker routes messages from publishers to all matching subscribers. MQTT supports three Quality of Service (QoS) levels: 0 (at most once), 1 (at least once), and 2 (exactly once).
+
+**Key characteristics**:
+- Extremely lightweight — minimal packet overhead (as low as 2 bytes header)
+- Publish-subscribe with hierarchical topic structure and wildcard subscriptions
+- Persistent sessions and retained messages
+- Last Will and Testament (LWT) for detecting client disconnections
+- Runs over TCP (or WebSockets for browser clients)
+
+**Limitations**:
+- Centralized broker is a single point of failure (unless clustered)
+- Not designed for high-throughput data pipelines (no native partitioning or consumer groups)
+- Limited message size (protocol allows up to 256 MB, but practical limits are much lower)
+- No built-in message replay or stream history
+- QoS 2 (exactly once) adds significant latency overhead
+
+**When to use**: IoT and edge computing scenarios with constrained devices, low-bandwidth networks, or unreliable connectivity. Home automation, industrial telemetry, fleet tracking, mobile push notifications. Use when devices are resource-constrained and the message volume per device is moderate.
+
+---
+
+### ZeroMQ (ZMQ)
+
+**How it works**: ZeroMQ is a high-performance asynchronous messaging library that provides socket-like abstractions for various messaging patterns. Unlike traditional brokers, ZMQ is brokerless — it is embedded directly in applications as a library. It provides several socket types that implement specific patterns: REQ/REP (request-reply), PUB/SUB (publish-subscribe), PUSH/PULL (pipeline/fan-out), DEALER/ROUTER (async request-reply), and PAIR (exclusive pair). ZMQ handles connection management, framing, reconnection, and buffering internally.
+
+**Key characteristics**:
+- Brokerless architecture — no central server required (peer-to-peer)
+- Multiple transport protocols: TCP, IPC (Unix sockets), inproc (in-process threads), PGM/EPGM (multicast)
+- Automatic reconnection and message queuing
+- Multi-part messages with atomic delivery
+- Extremely low latency (microseconds for inproc, sub-millisecond for TCP)
+- Language bindings for 40+ languages
+
+**Limitations**:
+- No message persistence or durability — messages are lost if the receiver is down and the sender's buffer overflows
+- No built-in message broker — you must design your own routing topology
+- No built-in authentication or encryption (though CurveZMQ exists as an add-on)
+- Debugging distributed ZMQ topologies can be challenging
+- No consumer groups, offsets, or replay capability
+- PUB/SUB has a "slow subscriber" problem — slow consumers miss messages
+
+**When to use**: Low-latency inter-process or inter-service communication where you do not need durability or replay. High-frequency trading systems, scientific computing pipelines, distributed task distribution, real-time data collection from multiple sources. Use when you want messaging patterns without the operational overhead of a broker.
+
+---
+
+### Redis Pub/Sub
+
+**How it works**: Redis Pub/Sub provides a simple publish-subscribe messaging system built into Redis. Publishers send messages to channels; subscribers listen on channels. Messages are delivered to all connected subscribers in real time. It is a fire-and-forget system — messages are not persisted and are only delivered to subscribers connected at the time of publication.
+
+**Key characteristics**:
+- Extremely simple API (PUBLISH, SUBSCRIBE, PSUBSCRIBE for pattern matching)
+- Very low latency (sub-millisecond on local network)
+- Pattern-based subscriptions with glob-style matching
+- No message persistence — pure real-time delivery
+- Part of Redis, so no additional infrastructure if Redis is already in use
+
+**Limitations**:
+- No message persistence — if a subscriber is disconnected, it misses all messages
+- No consumer groups or load balancing across consumers
+- No delivery guarantees — at-most-once only
+- No message acknowledgment or retry mechanism
+- A slow subscriber can cause memory buildup in the Redis output buffer, potentially crashing Redis
+- Messages are not stored — no replay or history
+
+**When to use**: Real-time notifications, cache invalidation broadcasts, lightweight event signaling between services that are always online. Use when you already have Redis and need simple, ephemeral pub/sub without durability requirements.
+
+---
+
+### Redis Streams
+
+**How it works**: Redis Streams (introduced in Redis 5.0) provide a durable, append-only log data structure within Redis. Producers append entries (field-value pairs) to a stream using XADD. Each entry gets a unique, time-based ID. Consumers can read entries sequentially (XREAD), or form consumer groups (XREADGROUP) where entries are distributed among group members with acknowledgment tracking (XACK). Unacknowledged entries can be claimed by other consumers (XCLAIM) for failure recovery.
+
+**Key characteristics**:
+- Durable, append-only log persisted to disk (with Redis persistence — RDB/AOF)
+- Consumer groups with automatic load balancing and message acknowledgment
+- Unique time-based IDs for each entry
+- Supports blocking reads for efficient polling
+- Pending Entry List (PEL) tracks unacknowledged messages per consumer
+- Capped streams (MAXLEN/MINID) for automatic trimming
+- Fan-out: multiple consumer groups can independently read the same stream
+
+**Limitations**:
+- Single-node throughput limited by Redis's single-threaded event loop
+- No built-in partitioning across multiple Redis instances (Redis Cluster can shard, but each stream lives on one node)
+- Memory-bound — large streams consume significant RAM (even with persistence, data is in memory)
+- No native exactly-once semantics — at-least-once with manual deduplication
+- Less mature ecosystem compared to Kafka for complex stream processing (no windowing, joins, etc.)
+- No built-in schema registry or data governance
+
+**When to use**: Lightweight event streaming, task queues, and activity feeds when you already use Redis and need durability and consumer groups without deploying Kafka. Suitable for moderate throughput (tens of thousands of messages/second per stream) scenarios like order processing, notification pipelines, or microservice event buses.
+
+---
+
+### RabbitMQ
+
+**How it works**: RabbitMQ is a traditional message broker implementing the AMQP (Advanced Message Queuing Protocol) standard. Producers publish messages to exchanges, which route messages to queues based on bindings and routing keys. Consumers subscribe to queues. RabbitMQ supports multiple exchange types: direct (exact routing key match), fanout (broadcast to all bound queues), topic (pattern-based routing), and headers (route by message headers). Messages can be persistent (written to disk) or transient.
+
+**Key characteristics**:
+- Flexible routing via exchanges, bindings, and routing keys
+- Multiple protocols: AMQP 0-9-1, AMQP 1.0, MQTT, STOMP, and HTTP
+- Message acknowledgment with manual or automatic ACK
+- Dead letter exchanges for failed message handling
+- Priority queues
+- Plugin ecosystem (management UI, federation, shovel)
+- Quorum queues for high availability and data safety
+- RabbitMQ Streams plugin for log-like append-only semantics
+
+**Limitations**:
+- Not designed for high-throughput event streaming (optimized for smart routing, not raw throughput)
+- Messages are deleted once consumed and acknowledged (not a replayable log, unless using Streams)
+- Performance degrades when queues grow very large (millions of messages)
+- Complex routing topologies can be hard to debug and maintain
+- No native partitioning for horizontal scaling of a single queue (though consistent hash exchange helps)
+- Clustering can be operationally complex; network partitions require careful handling
+
+**When to use**: Task distribution and work queues, request-reply patterns, complex message routing scenarios, systems requiring multiple protocol support. Best for traditional messaging use cases where you need flexible routing, per-message acknowledgment, and moderate throughput (thousands to low tens of thousands messages/second per queue).
+
+---
+
+### NATS and NATS JetStream
+
+**How it works**: NATS is a lightweight, high-performance messaging system. Core NATS provides a simple pub/sub and request-reply system with at-most-once delivery — no persistence, no acknowledgment. NATS JetStream (built into the NATS server since v2.2) adds persistence, at-least-once/exactly-once delivery, consumer groups (called "push" and "pull" consumers), message replay, and stream retention policies. JetStream stores messages in streams and allows consumers to read from any position.
+
+**Key characteristics**:
+- Core NATS: Extremely fast (millions of messages/second), simple pub/sub, subject-based addressing with wildcards
+- JetStream: Durable streams, consumer acknowledgment, replay from any position, key-value and object stores
+- Subject-based addressing (hierarchical subjects with `>` and `*` wildcards)
+- Built-in clustering and multi-tenancy (accounts)
+- Leaf nodes for edge computing and hub-spoke topologies
+- Single binary, minimal configuration, easy to deploy
+- Request-reply pattern built into the protocol
+
+**Limitations**:
+- Core NATS: No persistence or delivery guarantees (at-most-once only)
+- JetStream: Younger ecosystem than Kafka; fewer integrations and connectors
+- No built-in schema registry
+- Stream processing capabilities are basic compared to Kafka Streams or Flink
+- Large-scale JetStream deployments are less battle-tested than Kafka at extreme scale
+- Limited windowing and aggregation support — primarily a messaging/streaming transport, not a processing engine
+
+**When to use**: Microservice communication (especially request-reply), cloud-native applications, edge computing, IoT. Core NATS for ultra-low-latency fire-and-forget messaging. JetStream when you need persistence and replay without the operational weight of Kafka. Excellent for systems that need both traditional messaging patterns and streaming in a single lightweight platform.
+
+---
+
+### Apache Kafka
+
+**How it works**: Kafka is a distributed, partitioned, replicated commit log. Producers write records to topics, which are divided into partitions. Each partition is an ordered, immutable, append-only log. Partitions are distributed across brokers and replicated for fault tolerance. Consumers read from partitions using offsets and form consumer groups for parallel consumption — each partition is assigned to exactly one consumer within a group. Kafka retains messages for a configurable retention period (or indefinitely with log compaction).
+
+**Key characteristics**:
+- Extremely high throughput (millions of messages/second per cluster)
+- Durable, replayable commit log with configurable retention
+- Partitioned for horizontal scalability
+- Consumer groups with automatic partition assignment and rebalancing
+- Exactly-once semantics via idempotent producers and transactional writes
+- Log compaction for maintaining latest-value-per-key
+- Rich ecosystem: Kafka Connect (connectors), Kafka Streams (processing), ksqlDB (SQL), Schema Registry
+- KRaft mode (no ZooKeeper dependency since Kafka 3.3+)
+
+**Limitations**:
+- Operational complexity — managing brokers, partitions, replication, and rebalancing
+- Partition count changes require careful planning (rebalancing, data redistribution)
+- Not ideal for very low-latency messaging (typical latency is low milliseconds, not microseconds)
+- Consumer rebalancing can cause temporary processing pauses
+- JVM-based — significant memory and resource requirements
+- Ordering guaranteed only within a partition, not globally
+- Not designed for point-to-point or request-reply patterns (though possible with extra work)
+
+**When to use**: The default choice for large-scale event streaming, data pipelines, event sourcing, CDC, log aggregation, and event-driven architectures. Use when you need a durable, high-throughput, replayable event log with a mature ecosystem. Best for scenarios with high data volumes and multiple downstream consumers.
+
+---
+
+### Apache Pulsar
+
+**How it works**: Pulsar is a multi-tenant, distributed messaging and streaming platform that separates serving (brokers) from storage (Apache BookKeeper). Topics are divided into partitions, and each partition is stored as a distributed ledger in BookKeeper. This separation allows independent scaling of compute and storage. Pulsar supports both streaming (with consumer offsets and replay) and traditional queueing (shared subscription) semantics on the same topic. It includes built-in geo-replication for multi-datacenter deployments.
+
+**Key characteristics**:
+- Separation of compute and storage — independent scaling
+- Multi-tenancy with namespace isolation
+- Built-in geo-replication across datacenters
+- Multiple subscription modes: exclusive, shared (competing consumers), failover, key-shared
+- Tiered storage — offload old data to S3/GCS/HDFS automatically
+- Pulsar Functions for lightweight serverless stream processing
+- Schema registry built in
+- Topic compaction (similar to Kafka log compaction)
+
+**Limitations**:
+- More complex architecture (brokers + BookKeeper + ZooKeeper/metadata store)
+- Smaller community and ecosystem compared to Kafka
+- Fewer third-party connectors and integrations
+- BookKeeper adds operational overhead
+- Higher learning curve due to additional concepts (tenants, namespaces, bundles)
+- Some features (transactions, key-shared subscriptions) are newer and less battle-tested
+
+**When to use**: Multi-tenant platforms, multi-region deployments requiring geo-replication, use cases that need both queuing and streaming on the same infrastructure, scenarios requiring independent storage and compute scaling. Consider when you need tiered storage for cost-effective long-term retention.
+
+---
+
+### Amazon Kinesis Data Streams
+
+**How it works**: Kinesis is AWS's fully managed real-time data streaming service. Data is organized into streams, which are composed of shards. Each shard provides a fixed capacity (1 MB/sec input, 2 MB/sec output, 1,000 records/sec input). Producers write records with a partition key; Kinesis maps the key to a shard. Consumers read from shards using the Kinesis Client Library (KCL), which handles shard assignment, checkpointing, and failover. Kinesis retains data for 24 hours by default (up to 365 days).
+
+**Key characteristics**:
+- Fully managed — no servers to provision or manage
+- Automatic shard splitting and merging for scaling
+- Integrated with AWS ecosystem (Lambda, Firehose, Analytics, S3)
+- Enhanced fan-out for dedicated throughput per consumer
+- Server-side encryption at rest
+- On-demand capacity mode (auto-scaling)
+
+**Limitations**:
+- AWS-only — strong vendor lock-in
+- Shard-level throughput limits can require careful capacity planning
+- Higher latency than self-managed Kafka (typically 200ms+)
+- More expensive at high scale compared to self-managed alternatives
+- Limited to 7-day retention by default (365-day max costs significantly more)
+- Fewer processing frameworks compared to Kafka's ecosystem
+- Record size limited to 1 MB
+
+**When to use**: AWS-native real-time data ingestion when you want zero operational overhead. Best for teams already invested in the AWS ecosystem that need managed streaming without Kafka expertise. Ideal for moderate-scale streaming with tight AWS service integration (Lambda triggers, S3 delivery via Firehose).
+
+---
+
+### Technology Comparison Matrix
+
+| Technology | Type | Durability | Throughput | Latency | Delivery Guarantee | Complexity |
+|---|---|---|---|---|---|---|
+| TCP | Transport | None | High | Very low | Reliable, ordered | Very low |
+| UDP | Transport | None | Very high | Lowest | None | Very low |
+| Unix Sockets | IPC | None | Very high | Lowest | Reliable (stream) | Low |
+| MQTT | Protocol | Optional | Low-moderate | Low | QoS 0/1/2 | Low |
+| ZeroMQ | Library | None | Very high | Microseconds | At-most-once | Low-moderate |
+| Redis Pub/Sub | Broker feature | None | High | Sub-ms | At-most-once | Very low |
+| Redis Streams | Broker feature | Yes (Redis persistence) | Moderate | Sub-ms | At-least-once | Low |
+| RabbitMQ | Message broker | Yes | Moderate | Low ms | At-least-once | Moderate |
+| NATS Core | Messaging | None | Very high | Sub-ms | At-most-once | Very low |
+| NATS JetStream | Streaming | Yes | High | Low ms | At-least-once / exactly-once | Low-moderate |
+| Apache Kafka | Event streaming | Yes | Very high | Low ms | At-least-once / exactly-once | High |
+| Apache Pulsar | Event streaming | Yes | Very high | Low ms | At-least-once / exactly-once | Very high |
+| Amazon Kinesis | Managed streaming | Yes | High | ~200ms+ | At-least-once | Low (managed) |
+
+---
+
 ## Streaming Patterns for System Design
 
 ### Event Sourcing
