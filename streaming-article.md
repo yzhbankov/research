@@ -63,6 +63,32 @@ Media streaming involves the continuous delivery of audio, video, or other multi
 
 **HTTP Chunked Transfer**: Server sends response in chunks without knowing the total size in advance. Example: Large file downloads, streaming API responses (e.g., LLM token streaming).
 
+**HTTP/2 Server Push and Streaming**: Multiplexed streams over a single connection enabling concurrent requests and server-initiated resource push. Example: API streaming responses, multiplexed microservice communication.
+
+**HTTP/3 / QUIC**: HTTP over QUIC (UDP-based) eliminates head-of-line blocking with independent per-stream flow control and built-in encryption. Example: Low-latency web streaming, mobile streaming over unreliable networks.
+
+**Socket.IO**: Library on top of WebSockets adding auto-reconnect, rooms, broadcasting, and HTTP long-polling fallback. Example: Chat applications, real-time collaboration.
+
+**Mercure**: Open protocol built on SSE for real-time push with JWT authorization and topic-based subscriptions. Example: Real-time updates for REST API-based applications.
+
+**Long Polling**: Client sends HTTP request; server holds it open until data is available. Simulates server push. Example: Legacy real-time applications, restricted network environments.
+
+### Reactive and Runtime-Level Streaming
+
+**Reactive Streams (Java Flow API)**: Standard specification for async stream processing with non-blocking backpressure. Included in Java 9+ as `java.util.concurrent.Flow`. Example: Interoperability between reactive libraries.
+
+**Project Reactor**: Reactive Streams implementation (`Mono`/`Flux`) powering Spring WebFlux. Example: Non-blocking Spring microservices.
+
+**RxJava / RxJS / ReactiveX**: Cross-platform reactive programming with Observables and rich operators. Example: UI event composition, async data source merging.
+
+**Akka Streams / Apache Pekko Streams**: Graph-based reactive stream processing on the actor model with built-in backpressure. Example: Complex JVM data transformation pipelines.
+
+**Node.js Streams**: Built-in Readable/Writable/Transform streams with backpressure via `pipe()`. Example: File processing, HTTP streaming in Node.js.
+
+**Spring Cloud Stream**: Framework for event-driven microservices with binder abstractions for Kafka, RabbitMQ, Kinesis. Example: Spring Boot services with broker-agnostic messaging.
+
+**Apache Camel**: Integration framework with 300+ connectors implementing Enterprise Integration Patterns. Example: Enterprise system integration with streaming modes.
+
 ---
 
 ## Stream Processing Models
@@ -266,6 +292,14 @@ When consumers cannot keep up with producers, streaming systems need mechanisms 
 
 **RabbitMQ**: Traditional message broker supporting AMQP, MQTT, and STOMP. Supports streams (RabbitMQ Streams) for log-like workloads. Use Case: Task queues, request-reply patterns, lightweight messaging.
 
+**Apache ActiveMQ / Artemis**: Full-featured message broker supporting JMS, AMQP, STOMP, MQTT, and OpenWire. Artemis is the high-performance next-generation broker. Use Case: JMS-based enterprise messaging, multi-protocol environments.
+
+**Amazon MSK**: Fully managed Apache Kafka on AWS. Runs standard Kafka with no code changes. Use Case: AWS-native Kafka workloads without operational overhead.
+
+**Amazon EventBridge**: Serverless event bus for routing events between AWS services, SaaS apps, and custom sources. Use Case: Event-driven serverless architectures on AWS.
+
+**Confluent Cloud / Platform**: Commercial Kafka distribution with Schema Registry, ksqlDB, managed connectors, and enterprise features. Use Case: Production Kafka with enterprise support and governance.
+
 ### Stream Processing Engines
 
 **Apache Flink**: Distributed stream processing framework with true event-at-a-time processing, stateful computation, exactly-once guarantees, and advanced windowing. Use Case: Complex event processing, real-time analytics, ML inference pipelines.
@@ -284,27 +318,129 @@ When consumers cannot keep up with producers, streaming systems need mechanisms 
 
 **Amazon Kinesis Data Analytics**: Managed service for running Apache Flink applications on Kinesis streams. Use Case: AWS-native stream processing.
 
+**Apache Samza**: Stream processing framework from LinkedIn, tightly integrated with Kafka. Local state via RocksDB. Use Case: Stateful Kafka stream processing at LinkedIn scale.
+
+**Materialize**: Streaming SQL database maintaining incrementally updated materialized views. PostgreSQL-compatible. Use Case: Real-time dashboards, streaming ETL with SQL.
+
+**RisingWave**: Cloud-native streaming database with PostgreSQL wire protocol compatibility. Use Case: Real-time analytics and event-driven applications via SQL.
+
+**Bytewax**: Python-native stream processing built on Rust's Timely Dataflow. Use Case: ML feature pipelines, Python-ecosystem stream processing.
+
+### CDC and Data Integration
+
+**Debezium**: Open-source CDC platform built on Kafka Connect. Captures row-level database changes and streams them to Kafka. Use Case: Database replication, cache invalidation, microservice data sync.
+
+**Maxwell**: Lightweight MySQL CDC that reads binlogs and outputs JSON to Kafka, Kinesis, or RabbitMQ. Use Case: Simple MySQL change streaming.
+
+**Striim**: Commercial real-time data integration with CDC, transformations, and delivery. Use Case: Enterprise CDC, zero-downtime database migration.
+
+### Event Stores
+
+**EventStoreDB**: Purpose-built database for event sourcing with immutable append-only streams, projections, and subscriptions. Use Case: Event sourcing, CQRS, DDD aggregate persistence.
+
 ### Media Streaming Technologies
 
 **HLS (HTTP Live Streaming)**: Apple's adaptive bitrate streaming protocol. Segments video into small chunks served over HTTP. Widely supported across devices. Use Case: Video on demand, live streaming.
 
+**LL-HLS (Low-Latency HLS)**: Apple's extension to HLS that reduces end-to-end latency from 20–30 seconds to 2–4 seconds by enabling partial segment loading and blocking playlist reloads. Use Case: Live sports, live auctions, interactive live events.
+
 **DASH (Dynamic Adaptive Streaming over HTTP)**: Open standard for adaptive bitrate streaming. Codec-agnostic. Use Case: Cross-platform video delivery.
 
-**WebRTC (Web Real-Time Communication)**: Peer-to-peer real-time communication protocol for audio, video, and data. Ultra-low latency. Use Case: Video calls, conferencing, P2P streaming.
+**Low-Latency DASH (LL-DASH)**: Extension to DASH using CMAF chunked transfer to achieve 2–5 second latency while maintaining adaptive bitrate capabilities. Use Case: Low-latency live streaming with open standards.
+
+**CMAF (Common Media Application Format)**: A standard container format that unifies HLS and DASH delivery using fragmented MP4 (fMP4). Enables a single encoding pipeline to serve both protocols. Use Case: Reducing encoding/storage costs by using one format for both HLS and DASH.
+
+**WebRTC (Web Real-Time Communication)**: Peer-to-peer real-time communication protocol for audio, video, and data. Ultra-low latency (<500ms). Use Case: Video calls, conferencing, P2P streaming.
 
 **RTMP (Real-Time Messaging Protocol)**: Originally developed by Adobe for low-latency live streaming. Still used for ingest to streaming platforms. Use Case: Live stream ingest (OBS → Twitch/YouTube).
 
+**RTSP/RTP (Real-Time Streaming Protocol / Real-Time Transport Protocol)**: RTSP is a control protocol for establishing and controlling media streams; RTP is the transport protocol that carries the actual media data. RTP runs over UDP and includes timestamps and sequence numbers for synchronization. Use Case: IP cameras, surveillance systems, video conferencing systems, VoIP.
+
 **SRT (Secure Reliable Transport)**: Open-source protocol optimized for low-latency live video over unreliable networks. Use Case: Professional broadcast, remote production.
 
-### Client-Side Streaming Technologies
+**HESP (High Efficiency Streaming Protocol)**: Ultra-low-latency streaming protocol (<500ms) that maintains ABR capabilities. Uses a base layer (initialization) and an enhancement layer (live edge) for instant channel switching. Use Case: Live betting, interactive live streaming, large-scale ultra-low-latency delivery.
+
+**MPEG-TS (MPEG Transport Stream)**: A standard container format designed for broadcasting over unreliable media. Multiplexes audio, video, and data into fixed-size packets. Self-synchronizing and resilient to packet loss. Use Case: Digital television broadcast (DVB, ATSC), satellite delivery, legacy streaming pipelines.
+
+### Stream Processing Engines (Additional)
+
+**Apache Samza**: Distributed stream processing framework originally developed at LinkedIn. Tightly integrated with Kafka for input/output and uses YARN or Kubernetes for resource management. Provides local state storage backed by RocksDB with changelog-based recovery. Use Case: LinkedIn-scale stream processing, stateful transformations on Kafka data.
+
+**Materialize**: Streaming SQL database that maintains incrementally updated materialized views. Built on Timely Dataflow and Differential Dataflow. SQL queries are defined once and results update automatically as input data changes. Supports standard PostgreSQL wire protocol. Use Case: Real-time dashboards, operational analytics, replacing batch ETL with streaming SQL.
+
+**RisingWave**: Cloud-native streaming database with PostgreSQL compatibility. Processes streaming data using SQL and serves results via standard PostgreSQL queries. Separates compute and storage with a cloud-native architecture. Use Case: Real-time analytics, event-driven applications, streaming ETL with familiar SQL.
+
+**Bytewax**: Python-native stream processing framework built on Timely Dataflow (Rust). Allows Python developers to write stream processing pipelines using familiar Python syntax. Supports stateful processing, windowing, and connectors. Use Case: ML feature pipelines, Python-ecosystem stream processing, data science streaming workflows.
+
+**Apache Heron**: Stream processing engine originally developed at Twitter as a successor to Apache Storm. API-compatible with Storm but with better performance, scalability, and debuggability. Uses a process-based execution model instead of thread-based. Use Case: Migration from Storm, high-throughput real-time processing (though now largely dormant in favor of Flink).
+
+### CDC and Data Integration Streaming
+
+**Debezium**: Open-source distributed platform for Change Data Capture. Monitors databases (PostgreSQL, MySQL, MongoDB, SQL Server, Oracle, etc.) and streams row-level changes as events into Kafka topics. Built on Kafka Connect. Provides full snapshots and incremental CDC. Use Case: Database replication, cache invalidation, event sourcing from existing databases, microservice data synchronization.
+
+**Maxwell**: Lightweight CDC tool that reads MySQL binlogs and outputs row-level changes as JSON to Kafka, Kinesis, RabbitMQ, or stdout. Simpler alternative to Debezium for MySQL-only use cases. Use Case: MySQL-specific CDC, simple change streaming, search index updating.
+
+**Striim**: Commercial real-time data integration and streaming analytics platform. Provides CDC from databases, log files, and messaging systems with built-in transformations, validation, and delivery to targets. No-code/low-code interface. Use Case: Enterprise CDC, real-time data warehouse loading, database migration with zero downtime.
+
+### Client-Side and API Streaming Technologies
 
 **Server-Sent Events (SSE)**: Simple, HTTP-based, unidirectional server-to-client streaming. Auto-reconnect built-in. Use Case: Live feeds, notifications, real-time dashboards.
 
 **WebSockets**: Full-duplex communication over TCP. Persistent connection. Use Case: Chat, gaming, collaborative editing, real-time bidirectional data.
 
+**Socket.IO**: Library built on top of WebSockets that adds automatic reconnection, room-based broadcasting, binary streaming, multiplexing, and fallback to HTTP long-polling when WebSockets are unavailable. Provides both server (Node.js, Java, Python) and client (browser, mobile) libraries. Use Case: Chat applications, real-time collaboration, multiplayer games, any use case needing reliable WebSocket-like communication with graceful degradation.
+
 **gRPC Streaming**: HTTP/2-based RPC framework supporting four streaming modes (unary, server, client, bidirectional). Use Case: Inter-service communication, telemetry, real-time APIs.
 
 **GraphQL Subscriptions**: Real-time data via WebSocket connections in a GraphQL API. Use Case: Real-time UI updates in GraphQL-based applications.
+
+**HTTP/2 Server Push and Streaming**: HTTP/2's multiplexed streams enable concurrent requests over a single connection and server-initiated push of resources. Combined with streaming response bodies, this enables efficient real-time data delivery without WebSocket overhead. Use Case: API streaming responses (e.g., LLM token streaming), multiplexed microservice communication.
+
+**HTTP/3 and QUIC Streaming**: HTTP/3 replaces TCP with QUIC (a UDP-based transport), eliminating head-of-line blocking at the transport layer. Each stream is independently flow-controlled, so a lost packet in one stream does not block others. Built-in encryption (TLS 1.3) and 0-RTT connection establishment. Use Case: Low-latency web streaming, mobile streaming over unreliable networks, CDN delivery.
+
+**Mercure**: An open protocol built on SSE for real-time push notifications. A hub server receives updates from publishers (via POST) and pushes them to subscribers over SSE. Supports authorization via JWTs, topic-based subscriptions, and automatic reconnection with event replay. Use Case: Real-time updates for web/mobile apps, especially with existing REST APIs.
+
+**Long Polling**: A technique where the client sends an HTTP request and the server holds it open until new data is available, then responds. The client immediately re-requests. Simulates server push over standard HTTP. Use Case: Legacy real-time applications, environments where WebSockets/SSE are blocked.
+
+### Managed Cloud Streaming Services (Additional)
+
+**Google Cloud Pub/Sub**: Fully managed, serverless messaging service on GCP. Publishers send messages to topics; subscribers pull from subscriptions or receive push delivery. Supports ordering keys, dead-letter topics, exactly-once delivery (within Cloud Dataflow), message filtering, and schema validation. Global scale with automatic capacity management. Use Case: GCP-native event ingestion, cross-service communication, data pipeline ingestion for BigQuery/Dataflow.
+
+**Azure Event Hubs**: Fully managed big data streaming platform on Azure. Compatible with Apache Kafka producer/consumer APIs (no code changes needed for Kafka clients). Supports capture (automatic delivery to Azure Blob Storage/Data Lake), partitioned consumers, and Event Hubs for Apache Kafka. Use Case: Azure-native telemetry and event ingestion, Kafka workload migration to Azure, IoT data ingestion.
+
+**Azure Service Bus**: Enterprise message broker with queues and pub/sub topics. Supports sessions (ordered message groups), transactions, dead-lettering, scheduled delivery, and duplicate detection. Premium tier offers dedicated resources and VNET integration. Use Case: Enterprise integration, ordered processing workflows, financial transaction messaging.
+
+**Amazon MSK (Managed Streaming for Apache Kafka)**: Fully managed Apache Kafka service on AWS. Runs standard Apache Kafka with no code changes required. Handles broker provisioning, patching, and cluster operations. MSK Serverless mode eliminates capacity planning. Use Case: Running Kafka workloads on AWS without managing infrastructure, migration from self-managed Kafka.
+
+**Amazon EventBridge**: Serverless event bus for building event-driven architectures. Routes events from AWS services, SaaS applications, and custom sources to targets using rules. Supports schema registry, event replay, and archive. Use Case: AWS-native event routing, SaaS integration, decoupled serverless architectures.
+
+**Confluent Cloud / Confluent Platform**: Commercial Kafka distribution and fully managed Kafka service by the original Kafka creators. Adds Schema Registry, ksqlDB, managed connectors, cluster linking, stream governance, and multi-cloud capabilities. Use Case: Production Kafka with enterprise features, multi-cloud Kafka deployments, organizations wanting supported Kafka.
+
+### Event Store and Streaming Databases
+
+**EventStoreDB**: Purpose-built database for event sourcing. Stores events in immutable, append-only streams. Supports projections (server-side event transformations using JavaScript), subscriptions (catch-up and persistent), and optimistic concurrency control. Built-in support for reading streams forward/backward and from specific positions. Use Case: Event sourcing, CQRS read model projection, audit logging, domain-driven design aggregate persistence.
+
+### Reactive Streaming Frameworks
+
+**Reactive Streams Specification**: A standard for asynchronous stream processing with non-blocking backpressure. Defines interfaces (Publisher, Subscriber, Subscription, Processor) implemented by multiple frameworks. Included in Java 9+ as `java.util.concurrent.Flow`. Use Case: Foundation specification that enables interoperability between reactive libraries.
+
+**Project Reactor**: Reactive Streams implementation for Java. Provides `Mono` (0-1 element) and `Flux` (0-N elements) types. Foundation for Spring WebFlux. Supports operators for transforming, combining, and error-handling streams. Use Case: Spring-based reactive web applications, non-blocking microservices, reactive data access.
+
+**RxJava / RxJS / Rx.NET (ReactiveX)**: Cross-platform reactive programming libraries implementing the Observable pattern with rich operators for composing asynchronous event streams. Supports map, filter, merge, zip, window, buffer, and hundreds of other operators. Use Case: UI event handling, composing multiple async data sources, mobile applications (RxAndroid/RxSwift).
+
+**Akka Streams / Apache Pekko Streams**: Reactive Streams implementation built on the Akka (or Pekko) actor model. Provides a graph DSL for defining complex stream processing topologies with built-in backpressure. Supports fan-in, fan-out, cycles, and custom graph stages. Use Case: JVM-based stream processing pipelines, complex data transformation graphs, high-concurrency applications.
+
+### Runtime and Framework-Level Streaming
+
+**Node.js Streams**: Built-in streaming API in Node.js providing Readable, Writable, Transform, and Duplex streams. Uses backpressure via the `pipe()` mechanism. Fundamental to Node.js I/O — HTTP requests/responses, file I/O, and process I/O are all streams. Use Case: File processing, HTTP request/response streaming, data transformation pipelines in Node.js applications.
+
+**Java I/O Streams and NIO Channels**: Java's `InputStream`/`OutputStream` API and the `java.nio` (New I/O) package provide byte-level streaming and non-blocking channel-based I/O. NIO supports selectors for multiplexing multiple connections on a single thread. Use Case: Custom network servers, high-concurrency Java applications, foundation for frameworks like Netty.
+
+**Spring Cloud Stream**: Framework for building event-driven microservices connected to shared messaging systems. Provides binder abstractions for Kafka, RabbitMQ, Amazon Kinesis, and others. Declarative programming model using Spring's annotation-based configuration. Use Case: Spring Boot microservices needing message broker integration without vendor-specific code.
+
+**Apache Camel**: Integration framework implementing Enterprise Integration Patterns. Supports 300+ connectors (components) and provides a routing DSL for connecting systems. Supports streaming modes for large data transfers and integrates with Kafka, JMS, and other messaging systems. Use Case: Enterprise integration, connecting legacy systems to modern streaming platforms, complex routing and transformation pipelines.
+
+**Async Generators and Async Iterators (JavaScript/Python)**: Language-level primitives for producing and consuming asynchronous streams of values. In JavaScript, `async function*` generators yield values that can be consumed with `for await...of`. In Python, `async for` and `async yield` provide equivalent functionality. Use Case: Consuming paginated APIs, streaming LLM responses, processing large datasets without loading into memory.
 
 ---
 
@@ -598,23 +734,291 @@ This section walks through streaming technologies from the most fundamental tran
 
 ---
 
+### QUIC
+
+**How it works**: QUIC (Quick UDP Internet Connections) is a transport protocol originally developed by Google and now standardized as RFC 9000. It runs on top of UDP and provides reliable, multiplexed, encrypted connections. Unlike TCP, QUIC supports multiple independent streams within a single connection — a lost packet in one stream does not block others (no head-of-line blocking). QUIC integrates TLS 1.3 encryption directly into the transport layer and supports 0-RTT connection establishment for previously visited servers. HTTP/3 is built on QUIC.
+
+**Key characteristics**:
+- Multiplexed streams without head-of-line blocking
+- Built-in TLS 1.3 encryption (always encrypted)
+- 0-RTT connection establishment for returning connections
+- Connection migration — survives network changes (e.g., Wi-Fi to cellular)
+- Improved congestion control and loss recovery per stream
+- User-space implementation (not kernel) — faster iteration on protocol improvements
+
+**Limitations**:
+- Higher CPU usage than TCP (user-space processing, encryption overhead)
+- UDP may be throttled or blocked by some corporate firewalls and middleboxes
+- Newer protocol — less tooling for debugging and monitoring compared to TCP
+- Not all CDNs, load balancers, and proxies fully support QUIC yet
+- Implementation complexity is higher than TCP
+
+**When to use**: Modern web streaming (HTTP/3), mobile applications where connection migration matters, any scenario where head-of-line blocking in TCP is a bottleneck (multiple concurrent streams), low-latency CDN delivery.
+
+---
+
+### Google Cloud Pub/Sub
+
+**How it works**: Google Cloud Pub/Sub is a fully managed, serverless messaging service. Publishers send messages to topics; the service stores them durably and delivers them to subscriptions. Each subscription receives an independent copy of every message (fan-out). Subscribers can pull messages on demand or configure push delivery to an HTTPS endpoint. Messages are retained for up to 31 days (configurable). Ordering is available via ordering keys. Supports exactly-once delivery within Cloud Dataflow pipelines.
+
+**Key characteristics**:
+- Fully managed, globally distributed — no capacity planning
+- At-least-once delivery with message ordering via ordering keys
+- Push and pull subscription modes
+- Dead-letter topics for undeliverable messages
+- Message filtering at the subscription level (attribute-based)
+- Schema validation (Avro, Protocol Buffers)
+- Seek — replay messages from a timestamp or snapshot
+
+**Limitations**:
+- GCP-only — strong vendor lock-in
+- Message size limited to 10 MB
+- Ordering guaranteed only within the same ordering key (not globally)
+- No native stream processing — requires Dataflow/Beam for processing
+- Higher latency than self-managed Kafka (~100ms typical)
+- Cost can escalate with very high throughput
+
+**When to use**: GCP-native event ingestion and microservice communication. Best for teams on GCP wanting zero-ops messaging. Ideal for event-driven architectures, data pipeline ingestion into BigQuery/Dataflow, and workloads that benefit from global distribution.
+
+---
+
+### Azure Event Hubs
+
+**How it works**: Azure Event Hubs is a fully managed, big data streaming platform on Azure. Producers send events to event hubs (analogous to Kafka topics), which are partitioned for parallelism. Consumer groups enable multiple independent readers. Event Hubs provides a Kafka-compatible API endpoint — existing Kafka producers and consumers can connect with only configuration changes (no code changes). Event Hubs Capture automatically delivers events to Azure Blob Storage or Azure Data Lake for long-term retention.
+
+**Key characteristics**:
+- Fully managed with automatic scaling (throughput units or Processing Units in Premium/Dedicated)
+- Apache Kafka protocol compatibility (Kafka producer/consumer APIs work directly)
+- Event Hubs Capture for automatic archival to Blob Storage/Data Lake
+- Partitioned consumer model with consumer groups
+- AMQP 1.0, Kafka, and HTTPS protocols
+- Up to 90-day retention (7 days default)
+- Schema Registry built in
+
+**Limitations**:
+- Azure-only — vendor lock-in
+- Throughput unit model can require careful capacity planning (Standard tier)
+- Higher latency than self-managed Kafka for some workloads
+- Limited stream processing built-in — requires Azure Stream Analytics or external engine
+- Partition count cannot be changed after creation (Standard tier)
+- Premium/Dedicated tiers needed for advanced features (significantly higher cost)
+
+**When to use**: Azure-native event streaming, migrating Kafka workloads to Azure with minimal code changes, IoT data ingestion (via IoT Hub routing to Event Hubs), telemetry collection. Ideal for organizations already on Azure wanting managed streaming.
+
+---
+
+### Redpanda
+
+**How it works**: Redpanda is a Kafka-compatible streaming platform written in C++ using the Seastar framework (a high-performance async framework for I/O-intensive applications). It implements the Kafka protocol so that existing Kafka clients, tools, and ecosystems (Kafka Connect, Schema Registry, etc.) work without modification. Redpanda eliminates the JVM and ZooKeeper dependencies — it runs as a single binary with an embedded Raft-based consensus protocol for metadata management.
+
+**Key characteristics**:
+- Full Kafka API compatibility — drop-in replacement for Kafka
+- No JVM — written in C++ with thread-per-core architecture (Seastar)
+- No ZooKeeper — built-in Raft consensus
+- Lower tail latency (p99) compared to Kafka due to no GC pauses
+- Simpler operations — single binary, auto-tuning, fewer moving parts
+- Built-in Schema Registry and HTTP Proxy (Pandaproxy)
+- WebAssembly (Wasm) inline data transforms
+
+**Limitations**:
+- Smaller community and ecosystem compared to Kafka
+- Some Kafka features may lag behind the latest Kafka release
+- Less battle-tested at extreme scale (multi-PB deployments)
+- Commercial features (Tiered Storage, RBAC) require enterprise license
+- Fewer managed service options compared to Kafka (Confluent, MSK, etc.)
+
+**When to use**: When you want Kafka compatibility with simpler operations and lower latency. Best for teams that find Kafka's JVM tuning and ZooKeeper management burdensome. Ideal for latency-sensitive workloads, resource-constrained environments, or when operational simplicity is a priority.
+
+---
+
+### Apache ActiveMQ / ActiveMQ Artemis
+
+**How it works**: Apache ActiveMQ Classic is a traditional, full-featured message broker implementing JMS (Java Message Service), AMQP, STOMP, MQTT, and OpenWire protocols. ActiveMQ Artemis is its next-generation successor — a high-performance, non-blocking architecture inspired by HornetQ. Artemis supports persistent and non-persistent messaging, queues and topics, message groups, transactions, and clustering. Both support master-slave replication for high availability.
+
+**Key characteristics**:
+- Multi-protocol support: AMQP 1.0, STOMP, MQTT, OpenWire, HornetQ
+- JMS 2.0 compliant (Java Message Service)
+- Persistent messaging with journal-based storage (Artemis)
+- Message groups for ordered processing per group
+- Clustering with load balancing and HA (failover pairs)
+- Large message support (stream large messages to disk)
+- Diverts for routing messages between addresses
+
+**Limitations**:
+- Not designed for high-throughput event streaming (not a commit log)
+- Messages deleted after consumption (no replay without DLQ/re-routing)
+- Clustering complexity — network of brokers can be hard to manage
+- Classic ActiveMQ has known scalability limits; Artemis addresses many but is less widely deployed
+- Smaller community momentum compared to Kafka/RabbitMQ in recent years
+- No native partitioning model for horizontal scaling of a single queue
+
+**When to use**: JMS-based enterprise applications, Java EE environments, multi-protocol broker needs. Best for traditional enterprise messaging patterns (request-reply, point-to-point, pub/sub) where JMS compliance is required. Artemis is the preferred choice for new deployments.
+
+---
+
+### Amazon EventBridge
+
+**How it works**: Amazon EventBridge is a serverless event bus that makes it easy to connect applications using events. Events from AWS services (e.g., EC2 state changes, S3 uploads), SaaS integrations (e.g., Zendesk, Shopify), and custom applications are routed to targets based on rules. Rules match event patterns (JSON-based) and route matching events to targets (Lambda, SQS, SNS, Step Functions, API Gateway, etc.). EventBridge also provides Schema Registry (auto-discovers event schemas), event replay (archive and replay past events), and pipes (point-to-point integrations with filtering and enrichment).
+
+**Key characteristics**:
+- Serverless — no infrastructure to manage, pay-per-event
+- 100+ AWS service event sources and SaaS integrations built-in
+- Content-based filtering with JSON pattern matching rules
+- Schema Registry with automatic schema discovery
+- Event archive and replay capability
+- EventBridge Pipes for point-to-point integrations with enrichment
+- Cross-account and cross-region event delivery
+
+**Limitations**:
+- AWS-only — cannot be used outside AWS
+- Higher latency than Kafka/Kinesis (~500ms typical)
+- Limited throughput compared to Kafka (soft limits, need to request increases)
+- Event size limited to 256 KB
+- No stream processing capabilities — routing only
+- Debugging complex routing rules can be challenging
+- Not suitable for high-throughput, low-latency data streaming
+
+**When to use**: AWS-native event-driven architectures with serverless compute. Best for routing events between AWS services and SaaS applications. Ideal when you need content-based routing, schema management, and integration with Lambda/Step Functions without managing messaging infrastructure.
+
+---
+
+### Debezium
+
+**How it works**: Debezium is an open-source distributed platform for Change Data Capture built on top of Kafka Connect. It deploys database-specific connectors as Kafka Connect source connectors. Each connector reads the database's transaction log (WAL in PostgreSQL, binlog in MySQL, oplog in MongoDB, etc.) and converts row-level changes into structured change events published to Kafka topics. Each table gets its own topic. Change events include before/after snapshots, operation type, source metadata, and transaction information. Debezium also performs an initial consistent snapshot of existing data before switching to streaming mode.
+
+**Key characteristics**:
+- Connectors for PostgreSQL, MySQL, MongoDB, SQL Server, Oracle, Db2, Cassandra, Vitess, and Spanner
+- Consistent initial snapshot + continuous CDC streaming
+- Change events include before/after state, operation type, and metadata
+- Built on Kafka Connect — leverages its scalability, offset management, and fault tolerance
+- Embedded engine mode (use Debezium as a library without Kafka Connect)
+- Single Message Transforms (SMTs) for event transformation
+- Outbox pattern support for reliable event publishing from microservices
+
+**Limitations**:
+- Requires Kafka (or Kafka Connect compatible system) in most deployment modes
+- Database-specific connector maturity varies (PostgreSQL and MySQL are most mature)
+- Initial snapshot of large databases can take hours and impact database performance
+- Schema changes require careful handling (some connectors handle DDL better than others)
+- Logical replication slots in PostgreSQL can cause WAL accumulation if Debezium is down
+- Monitoring and operational tooling is basic compared to commercial CDC solutions
+
+**When to use**: Streaming database changes to Kafka for downstream consumers. Best for microservice data synchronization, populating search indexes (Elasticsearch), cache invalidation, building event-sourced systems from existing databases, and keeping data warehouses in sync with operational databases.
+
+---
+
+### EventStoreDB
+
+**How it works**: EventStoreDB is a purpose-built database designed for event sourcing. Events are appended to streams (ordered sequences of events identified by a stream name). Each event has a type, data payload (JSON or binary), metadata, and a monotonically increasing position. Streams support optimistic concurrency control via expected version checks. Projections (written in JavaScript) run server-side to transform and combine events from multiple streams into new derived streams. Subscriptions (catch-up and persistent) allow consumers to process events in real-time or from a specific position.
+
+**Key characteristics**:
+- Immutable, append-only event storage with per-stream ordering
+- Optimistic concurrency control for write consistency
+- Server-side projections for event transformation and aggregation
+- Catch-up subscriptions (from any position) and persistent subscriptions (consumer groups)
+- System projections: $by_category, $by_event_type, $streams for built-in event organization
+- HTTP and gRPC client APIs
+- Scavenge process for reclaiming space from deleted/truncated streams
+- Cluster mode with leader election for high availability
+
+**Limitations**:
+- Purpose-built for event sourcing — not a general-purpose database or message broker
+- Smaller ecosystem compared to Kafka or PostgreSQL
+- Server-side projections (JavaScript engine) have performance limits at high volume
+- Operational tooling and monitoring less mature than mainstream databases
+- Not designed for high-throughput data streaming (better for domain event volumes)
+- Learning curve for event sourcing patterns if team is unfamiliar
+
+**When to use**: Domain-driven design with event sourcing, CQRS implementations, audit-critical systems, applications where the history of state changes is as important as the current state. Ideal when your primary data model is an event stream per aggregate.
+
+---
+
 ### Technology Comparison Matrix
+
+#### Transport and Protocols
 
 | Technology | Type | Durability | Throughput | Latency | Delivery Guarantee | Complexity |
 |---|---|---|---|---|---|---|
 | TCP | Transport | None | High | Very low | Reliable, ordered | Very low |
 | UDP | Transport | None | Very high | Lowest | None | Very low |
+| QUIC | Transport | None | Very high | Very low | Reliable, ordered (per-stream) | Low |
 | Unix Sockets | IPC | None | Very high | Lowest | Reliable (stream) | Low |
 | MQTT | Protocol | Optional | Low-moderate | Low | QoS 0/1/2 | Low |
 | ZeroMQ | Library | None | Very high | Microseconds | At-most-once | Low-moderate |
+| RTSP/RTP | Media protocol | None | High | Very low | Optional (RTCP) | Moderate |
+
+#### Message Brokers and Event Streaming Platforms
+
+| Technology | Type | Durability | Throughput | Latency | Delivery Guarantee | Complexity |
+|---|---|---|---|---|---|---|
 | Redis Pub/Sub | Broker feature | None | High | Sub-ms | At-most-once | Very low |
 | Redis Streams | Broker feature | Yes (Redis persistence) | Moderate | Sub-ms | At-least-once | Low |
 | RabbitMQ | Message broker | Yes | Moderate | Low ms | At-least-once | Moderate |
+| Apache ActiveMQ | Message broker | Yes | Moderate | Low ms | At-least-once | Moderate |
 | NATS Core | Messaging | None | Very high | Sub-ms | At-most-once | Very low |
 | NATS JetStream | Streaming | Yes | High | Low ms | At-least-once / exactly-once | Low-moderate |
 | Apache Kafka | Event streaming | Yes | Very high | Low ms | At-least-once / exactly-once | High |
 | Apache Pulsar | Event streaming | Yes | Very high | Low ms | At-least-once / exactly-once | Very high |
-| Amazon Kinesis | Managed streaming | Yes | High | ~200ms+ | At-least-once | Low (managed) |
+| Redpanda | Event streaming | Yes | Very high | Sub-ms | At-least-once / exactly-once | Moderate |
+| EventStoreDB | Event store | Yes | Moderate | Low ms | At-least-once | Moderate |
+
+#### Managed Cloud Services
+
+| Technology | Provider | Durability | Throughput | Latency | Delivery Guarantee | Complexity |
+|---|---|---|---|---|---|---|
+| Amazon Kinesis | AWS | Yes | High | ~200ms+ | At-least-once | Low (managed) |
+| Amazon MSK | AWS | Yes | Very high | Low ms | At-least-once / exactly-once | Low (managed) |
+| Amazon EventBridge | AWS | Yes | Moderate | ~500ms | At-least-once | Very low (serverless) |
+| Google Cloud Pub/Sub | GCP | Yes | High | ~100ms | At-least-once | Low (managed) |
+| Azure Event Hubs | Azure | Yes | Very high | Low ms | At-least-once | Low (managed) |
+| Azure Service Bus | Azure | Yes | Moderate | Low ms | At-least-once | Moderate (managed) |
+| Confluent Cloud | Multi-cloud | Yes | Very high | Low ms | At-least-once / exactly-once | Low (managed) |
+
+#### Stream Processing Engines
+
+| Technology | Model | Stateful | Exactly-Once | Language | Complexity |
+|---|---|---|---|---|---|
+| Apache Flink | Event-at-a-time | Yes | Yes | Java/Scala/Python/SQL | High |
+| Spark Structured Streaming | Micro-batch | Yes | Yes | Java/Scala/Python/SQL | High |
+| Kafka Streams | Event-at-a-time | Yes | Yes | Java/Kotlin | Moderate |
+| ksqlDB | SQL on streams | Yes | Yes | SQL | Low |
+| Apache Beam | Unified model | Yes | Runner-dependent | Java/Python/Go | High |
+| Apache Storm | Event-at-a-time | Limited | No | Java/Clojure | High |
+| Apache Samza | Event-at-a-time | Yes | Yes | Java/Scala | High |
+| Apache Heron | Event-at-a-time | Limited | No | Java/Python/C++ | High |
+| Materialize | Streaming SQL | Yes | Yes | SQL | Low-moderate |
+| RisingWave | Streaming SQL | Yes | Yes | SQL | Low-moderate |
+| Bytewax | Event-at-a-time | Yes | No | Python | Low |
+| Google Cloud Dataflow | Unified (Beam) | Yes | Yes | Java/Python | Low (managed) |
+
+#### Media Streaming Protocols
+
+| Technology | Latency | Adaptive Bitrate | Transport | Direction |
+|---|---|---|---|---|
+| HLS | 15–30s | Yes | HTTP | Server → Client |
+| LL-HLS | 2–4s | Yes | HTTP | Server → Client |
+| DASH | 15–30s | Yes | HTTP | Server → Client |
+| LL-DASH | 2–5s | Yes | HTTP | Server → Client |
+| CMAF | Varies | Yes (container) | HTTP | Server → Client |
+| WebRTC | <500ms | No (SDP negotiation) | UDP (SRTP) | Bidirectional (P2P) |
+| RTMP | 1–3s | No | TCP | Bidirectional |
+| RTSP/RTP | <1s | No | UDP/TCP | Bidirectional |
+| SRT | <1s | No | UDP | Bidirectional |
+| HESP | <500ms | Yes | HTTP | Server → Client |
+
+#### Client-Side / API Streaming
+
+| Technology | Direction | Transport | Auto-Reconnect | Binary Support | Complexity |
+|---|---|---|---|---|---|
+| SSE | Server → Client | HTTP | Yes | No (text only) | Very low |
+| WebSockets | Bidirectional | TCP | No (manual) | Yes | Low |
+| Socket.IO | Bidirectional | WS + fallback | Yes | Yes | Low |
+| gRPC Streaming | Bidirectional | HTTP/2 | Configurable | Yes (protobuf) | Moderate |
+| GraphQL Subscriptions | Server → Client | WebSocket | Library-dependent | No | Low-moderate |
+| HTTP/2 Streaming | Bidirectional | TCP | No | Yes | Low |
+| HTTP/3 / QUIC | Bidirectional | UDP (QUIC) | Built-in (0-RTT) | Yes | Low |
+| Mercure | Server → Client | SSE | Yes | No | Low |
+| Long Polling | Server → Client | HTTP | Manual | Limited | Very low |
 
 ---
 
