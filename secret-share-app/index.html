@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecretDrop — Zero-Knowledge Encrypted Secret Sharing</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-inner">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                            <path d="M7 11V7a5 5 0 0110 0v4"/>
+                        </svg>
+                    </div>
+                    <span class="logo-text">SecretDrop</span>
+                </div>
+                <nav class="nav">
+                    <button class="nav-btn active" data-view="encrypt">Encrypt</button>
+                    <button class="nav-btn" data-view="decrypt">Decrypt</button>
+                    <button class="nav-btn" data-view="how">How It Works</button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Hero Banner -->
+        <section class="hero">
+            <div class="hero-inner">
+                <h1>Share secrets that <span class="gradient-text">self-destruct</span></h1>
+                <p class="hero-sub">Zero-knowledge encryption in your browser. We never see your data. Ever.</p>
+                <div class="trust-badges">
+                    <span class="badge">AES-256-GCM</span>
+                    <span class="badge">Client-Side Only</span>
+                    <span class="badge">Zero Knowledge</span>
+                    <span class="badge">No Account Needed</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Encrypt View -->
+            <div id="view-encrypt" class="view active">
+                <div class="card">
+                    <h2>Create a Secret</h2>
+
+                    <!-- Secret Input -->
+                    <div class="form-group">
+                        <label for="secret-input">Your secret message</label>
+                        <textarea id="secret-input" placeholder="Type your secret here... passwords, API keys, private notes, anything." rows="5"></textarea>
+                        <div class="char-count"><span id="char-count">0</span> characters</div>
+                    </div>
+
+                    <!-- Key Method Selector -->
+                    <div class="form-group">
+                        <label>Encryption key method</label>
+                        <div class="key-methods">
+                            <button class="method-btn active" data-method="text">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                <span>Text Key</span>
+                            </button>
+                            <button class="method-btn" data-method="voice">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                                <span>Voice Phrase</span>
+                            </button>
+                            <button class="method-btn" data-method="draw">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                                <span>Draw Pattern</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Text Key Input -->
+                    <div id="key-text" class="key-input-area active">
+                        <div class="form-group">
+                            <label for="text-key">Encryption passphrase</label>
+                            <div class="input-with-icon">
+                                <input type="password" id="text-key" placeholder="Enter a strong passphrase..." autocomplete="off">
+                                <button id="toggle-key-vis" class="icon-btn" title="Toggle visibility">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                </button>
+                            </div>
+                            <div class="key-strength" id="key-strength"></div>
+                        </div>
+                    </div>
+
+                    <!-- Voice Key Input -->
+                    <div id="key-voice" class="key-input-area">
+                        <div class="voice-recorder">
+                            <p class="voice-hint">Record a unique voice phrase. The audio fingerprint becomes your encryption key. The recipient must say the same phrase to decrypt.</p>
+                            <button id="voice-record-btn" class="record-btn">
+                                <div class="record-icon"></div>
+                                <span>Hold to Record</span>
+                            </button>
+                            <div id="voice-visualizer" class="voice-visualizer">
+                                <canvas id="voice-canvas" width="300" height="60"></canvas>
+                            </div>
+                            <div id="voice-status" class="voice-status"></div>
+                        </div>
+                    </div>
+
+                    <!-- Draw Pattern Input -->
+                    <div id="key-draw" class="key-input-area">
+                        <div class="draw-area">
+                            <p class="draw-hint">Draw a pattern on the canvas below. Your drawing becomes the encryption key. The recipient must draw the same pattern to decrypt.</p>
+                            <canvas id="draw-canvas" width="300" height="200"></canvas>
+                            <button id="clear-draw" class="btn-small">Clear</button>
+                        </div>
+                    </div>
+
+                    <!-- Verification Challenge -->
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="enable-challenge">
+                            <span>Add recipient verification challenge</span>
+                        </label>
+                        <div id="challenge-area" class="challenge-area hidden">
+                            <input type="text" id="challenge-question" placeholder="Question: e.g., What's our dog's name?">
+                            <input type="text" id="challenge-answer" placeholder="Expected answer (case-insensitive)">
+                            <p class="hint">The recipient must answer correctly before they can decrypt your secret.</p>
+                        </div>
+                    </div>
+
+                    <!-- Expiry Settings -->
+                    <div class="form-group">
+                        <label for="expiry-select">Self-destruct after</label>
+                        <div class="expiry-options">
+                            <select id="expiry-select">
+                                <option value="300">5 minutes</option>
+                                <option value="3600">1 hour</option>
+                                <option value="86400" selected>24 hours</option>
+                                <option value="604800">7 days</option>
+                            </select>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="one-time-view" checked>
+                                <span>Destroy after first view</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Encrypt Button -->
+                    <button id="encrypt-btn" class="btn-primary" disabled>
+                        <span class="btn-text">Encrypt & Create Link</span>
+                        <div class="encryption-anim hidden">
+                            <div class="lock-anim"></div>
+                            <span>Encrypting in your browser...</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Result Area -->
+                <div id="encrypt-result" class="card result-card hidden">
+                    <div class="result-header">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        <h3>Secret Encrypted Successfully</h3>
+                    </div>
+
+                    <div class="result-body">
+                        <div class="zero-knowledge-proof">
+                            <div class="proof-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            </div>
+                            <div class="proof-text">
+                                <strong>Zero-Knowledge Proof</strong>
+                                <p>Encryption hash: <code id="proof-hash"></code></p>
+                                <p class="hint">This proves your data was encrypted client-side. The server only stores ciphertext.</p>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Share this link</label>
+                            <div class="link-copy">
+                                <input type="text" id="secret-link" readonly>
+                                <button id="copy-link-btn" class="btn-copy">Copy</button>
+                            </div>
+                        </div>
+
+                        <div id="qr-container" class="qr-container">
+                            <canvas id="qr-canvas"></canvas>
+                            <p class="hint">Scan QR code for in-person sharing</p>
+                        </div>
+
+                        <div class="result-warnings">
+                            <p><strong>Important:</strong></p>
+                            <ul>
+                                <li>This link will self-destruct after being viewed <span id="result-view-info">once</span></li>
+                                <li>Link expires in <span id="result-expiry-info"></span></li>
+                                <li>Share the passphrase separately — never in the same message as the link</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Decrypt View -->
+            <div id="view-decrypt" class="view">
+                <div class="card">
+                    <h2>Decrypt a Secret</h2>
+
+                    <!-- Challenge Gate -->
+                    <div id="challenge-gate" class="challenge-gate hidden">
+                        <div class="challenge-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </div>
+                        <h3>Verify Your Identity</h3>
+                        <p id="challenge-display-question"></p>
+                        <input type="text" id="challenge-answer-input" placeholder="Your answer...">
+                        <button id="verify-challenge-btn" class="btn-primary">Verify & Continue</button>
+                        <div id="challenge-error" class="error-msg hidden">Incorrect answer. Please try again.</div>
+                    </div>
+
+                    <!-- Decrypt Form -->
+                    <div id="decrypt-form">
+                        <!-- Encrypted Text Input -->
+                        <div class="form-group">
+                            <label for="encrypted-input">Encrypted text (or paste a SecretDrop link)</label>
+                            <textarea id="encrypted-input" placeholder="Paste the encrypted data or SecretDrop link here..." rows="5"></textarea>
+                        </div>
+
+                        <!-- Key Method Selector (Decrypt) -->
+                        <div class="form-group">
+                            <label>Decryption key method</label>
+                            <div class="key-methods">
+                                <button class="d-method-btn active" data-method="text">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                    <span>Text Key</span>
+                                </button>
+                                <button class="d-method-btn" data-method="voice">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                                    <span>Voice Phrase</span>
+                                </button>
+                                <button class="d-method-btn" data-method="draw">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                                    <span>Draw Pattern</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Decrypt Key Inputs -->
+                        <div id="d-key-text" class="d-key-input-area active">
+                            <div class="form-group">
+                                <label for="decrypt-key">Decryption passphrase</label>
+                                <input type="password" id="decrypt-key" placeholder="Enter the passphrase..." autocomplete="off">
+                            </div>
+                        </div>
+
+                        <div id="d-key-voice" class="d-key-input-area">
+                            <div class="voice-recorder">
+                                <p class="voice-hint">Record the same voice phrase used for encryption.</p>
+                                <button id="d-voice-record-btn" class="record-btn">
+                                    <div class="record-icon"></div>
+                                    <span>Hold to Record</span>
+                                </button>
+                                <div id="d-voice-visualizer" class="voice-visualizer">
+                                    <canvas id="d-voice-canvas" width="300" height="60"></canvas>
+                                </div>
+                                <div id="d-voice-status" class="voice-status"></div>
+                            </div>
+                        </div>
+
+                        <div id="d-key-draw" class="d-key-input-area">
+                            <div class="draw-area">
+                                <p class="draw-hint">Draw the same pattern used for encryption.</p>
+                                <canvas id="d-draw-canvas" width="300" height="200"></canvas>
+                                <button id="d-clear-draw" class="btn-small">Clear</button>
+                            </div>
+                        </div>
+
+                        <button id="decrypt-btn" class="btn-primary">
+                            <span class="btn-text">Decrypt</span>
+                            <div class="encryption-anim hidden">
+                                <div class="lock-anim unlock"></div>
+                                <span>Decrypting...</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- Decrypted Result -->
+                    <div id="decrypt-result" class="hidden">
+                        <div class="result-header success">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                            <h3>Secret Decrypted</h3>
+                        </div>
+                        <div class="decrypted-content">
+                            <pre id="decrypted-text"></pre>
+                            <button id="copy-decrypted" class="btn-copy">Copy to Clipboard</button>
+                        </div>
+                        <p class="self-destruct-warning">This content will be cleared when you leave this page.</p>
+                    </div>
+
+                    <div id="decrypt-error" class="error-card hidden">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        <p>Decryption failed. Wrong key or corrupted data.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- How It Works View -->
+            <div id="view-how" class="view">
+                <div class="card">
+                    <h2>How SecretDrop Works</h2>
+
+                    <div class="how-steps">
+                        <div class="step">
+                            <div class="step-num">1</div>
+                            <div class="step-content">
+                                <h3>You type your secret</h3>
+                                <p>Enter any text — passwords, API keys, private messages, sensitive data.</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">2</div>
+                            <div class="step-content">
+                                <h3>Choose your key method</h3>
+                                <p>Use a text passphrase, record a voice phrase, or draw a pattern. Your key never leaves your browser.</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">3</div>
+                            <div class="step-content">
+                                <h3>Encryption happens locally</h3>
+                                <p>AES-256-GCM encryption runs entirely in your browser using the Web Crypto API. The server receives only ciphertext — it physically cannot read your data.</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">4</div>
+                            <div class="step-content">
+                                <h3>Share the link publicly</h3>
+                                <p>Get a one-time link or QR code. Send it over any channel — email, Slack, SMS, carrier pigeon. Even if intercepted, it's useless without the key.</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">5</div>
+                            <div class="step-content">
+                                <h3>Recipient decrypts with the key</h3>
+                                <p>They enter the passphrase (or voice phrase / pattern) and get the original message. Then it self-destructs.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="security-details">
+                        <h3>Security Guarantees</h3>
+                        <div class="guarantee-grid">
+                            <div class="guarantee">
+                                <h4>Zero Knowledge</h4>
+                                <p>All encryption/decryption uses the Web Crypto API in your browser. Your plaintext and key never touch our servers. We couldn't read your data even if compelled by law — because we don't have it.</p>
+                            </div>
+                            <div class="guarantee">
+                                <h4>AES-256-GCM</h4>
+                                <p>Military-grade authenticated encryption. The same standard used by governments and financial institutions worldwide. Includes integrity verification — tampered data is automatically rejected.</p>
+                            </div>
+                            <div class="guarantee">
+                                <h4>PBKDF2 Key Derivation</h4>
+                                <p>Your passphrase is strengthened with 100,000 rounds of PBKDF2-SHA256 and a random salt. This makes brute-force attacks computationally infeasible.</p>
+                            </div>
+                            <div class="guarantee">
+                                <h4>Open Source</h4>
+                                <p>Every line of code is auditable. Verify that the encryption claims are real — don't trust, verify.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vs-comparison">
+                        <h3>Why not just use email / Slack / SMS?</h3>
+                        <table class="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Feature</th>
+                                    <th>Email/Slack</th>
+                                    <th>OneTimeSecret</th>
+                                    <th>SecretDrop</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>End-to-end encryption</td>
+                                    <td class="no">No</td>
+                                    <td class="partial">Server-side</td>
+                                    <td class="yes">Client-side</td>
+                                </tr>
+                                <tr>
+                                    <td>Self-destruct</td>
+                                    <td class="no">No</td>
+                                    <td class="yes">Yes</td>
+                                    <td class="yes">Yes</td>
+                                </tr>
+                                <tr>
+                                    <td>Zero-knowledge proof</td>
+                                    <td class="no">No</td>
+                                    <td class="no">No</td>
+                                    <td class="yes">Yes</td>
+                                </tr>
+                                <tr>
+                                    <td>Voice/pattern keys</td>
+                                    <td class="no">No</td>
+                                    <td class="no">No</td>
+                                    <td class="yes">Yes</td>
+                                </tr>
+                                <tr>
+                                    <td>Recipient verification</td>
+                                    <td class="no">No</td>
+                                    <td class="no">No</td>
+                                    <td class="yes">Yes</td>
+                                </tr>
+                                <tr>
+                                    <td>Message persists forever</td>
+                                    <td class="no">Yes (bad)</td>
+                                    <td class="yes">No</td>
+                                    <td class="yes">No</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-inner">
+                <p>SecretDrop — Your secrets stay yours. Zero-knowledge. Zero-trust. Zero-compromise.</p>
+                <p class="footer-tech">Built with Web Crypto API | AES-256-GCM | PBKDF2-SHA256 | 100% Client-Side</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="crypto-engine.js"></script>
+    <script src="voice-key.js"></script>
+    <script src="draw-key.js"></script>
+    <script src="qr.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
