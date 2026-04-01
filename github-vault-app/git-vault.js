@@ -1,12 +1,13 @@
 /**
- * SecretDrop Git Vault
+ * GitVault — File Encryption Engine
  * Encrypts/decrypts arbitrary files for storage in public Git repositories.
- * Uses AES-256-GCM with raw CryptoKey objects (no PBKDF2 — keys managed by KeyManager).
+ * Uses AES-256-GCM with raw CryptoKey objects (keys managed by KeyManager).
+ * Binary-safe — works with any file type.
  */
 const GitVault = (() => {
-    const MAGIC = new Uint8Array([0x53, 0x44, 0x76, 0x61, 0x75, 0x6C, 0x74, 0x31]); // "SDvault1"
+    const MAGIC = new Uint8Array([0x47, 0x56, 0x61, 0x75, 0x6C, 0x74, 0x30, 0x31]); // "GVault01"
     const IV_LENGTH = 12;
-    const CONFIG_FILENAME = '.secretdrop-vault';
+    const CONFIG_FILENAME = '.gitvault';
 
     async function encryptFile(file, cryptoKey) {
         const buffer = await readFileAsArrayBuffer(file);
@@ -30,7 +31,7 @@ const GitVault = (() => {
         const data = new Uint8Array(buffer);
 
         if (!isEncryptedBuffer(data)) {
-            throw new Error('File is not encrypted with SecretDrop Vault');
+            throw new Error('File is not encrypted with GitVault');
         }
 
         const iv = data.slice(MAGIC.length, MAGIC.length + IV_LENGTH);
@@ -106,7 +107,7 @@ const GitVault = (() => {
 
     function generateConfig(patterns) {
         const lines = [
-            '# SecretDrop Vault Configuration',
+            '# GitVault Configuration',
             '# Files matching these patterns should be encrypted before commit',
             '# One pattern per line, .gitignore-style syntax',
             ''
@@ -140,7 +141,7 @@ const GitVault = (() => {
                 if (glob[i + 1] === '*') {
                     regex += '.*';
                     i += 2;
-                    if (glob[i] === '/') i++; // skip separator after **
+                    if (glob[i] === '/') i++;
                     continue;
                 }
                 regex += '[^/]*';

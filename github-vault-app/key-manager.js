@@ -1,11 +1,11 @@
 /**
- * SecretDrop Key Manager
- * Generates, stores, exports, and imports AES-256-GCM keys for vault encryption.
+ * GitVault Key Manager
+ * Generates, stores, exports, and imports AES-256-GCM keys.
  * Keys are stored in localStorage as JWK format.
  */
 const KeyManager = (() => {
-    const STORAGE_KEY = 'secretdrop_vault_keys';
-    const ACTIVE_KEY_STORAGE = 'secretdrop_vault_active_key';
+    const STORAGE_KEY = 'gitvault_keys';
+    const ACTIVE_KEY_STORAGE = 'gitvault_active_key';
 
     function generateUUID() {
         if (crypto.randomUUID) return crypto.randomUUID();
@@ -23,13 +23,12 @@ const KeyManager = (() => {
             ['encrypt', 'decrypt']
         );
         const jwk = await crypto.subtle.exportKey('jwk', key);
-        const entry = {
+        return {
             id: generateUUID(),
             name: name || 'Untitled Key',
             jwk: jwk,
             createdAt: new Date().toISOString()
         };
-        return entry;
     }
 
     function getStoredKeys() {
@@ -81,7 +80,7 @@ const KeyManager = (() => {
         if (!entry) throw new Error('Key not found');
 
         const exportData = {
-            _type: 'secretdrop_vault_key_v1',
+            _type: 'gitvault_key_v1',
             name: entry.name,
             jwk: entry.jwk,
             createdAt: entry.createdAt
@@ -91,7 +90,7 @@ const KeyManager = (() => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${entry.name.replace(/[^a-zA-Z0-9-_]/g, '_')}.secretdrop-key.json`;
+        a.download = `${entry.name.replace(/[^a-zA-Z0-9-_]/g, '_')}.gitvault-key.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -104,10 +103,9 @@ const KeyManager = (() => {
             reader.onload = async (e) => {
                 try {
                     const data = JSON.parse(e.target.result);
-                    if (data._type !== 'secretdrop_vault_key_v1') {
-                        throw new Error('Invalid key file format');
+                    if (data._type !== 'gitvault_key_v1') {
+                        throw new Error('Invalid key file format. Expected a .gitvault-key.json file.');
                     }
-                    // Validate the JWK by importing it
                     await crypto.subtle.importKey(
                         'jwk', data.jwk,
                         { name: 'AES-GCM', length: 256 },
