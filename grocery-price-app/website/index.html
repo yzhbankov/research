@@ -1,0 +1,503 @@
+<title>CartIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=JetBrains+Mono:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400&display=swap">
+<style>
+  :root {
+    --paper:#F6F8F6; --surface:#FFFFFF; --surface-2:#EDF2EF; --sunken:#E7EDEA;
+    --ink:#101B19; --body:#26332F; --muted:#5F706D;
+    --line:#DBE4E0; --line-strong:#BCCAC5;
+    --accent:#0E6E5C; --accent-soft:#DBEEE8;
+    --tag:#B57811; --tag-fill:#F7E9CC;
+    --good:#2E7D53; --warn:#A96B18; --crit:#A9382F;
+    --dsp:"Bricolage Grotesque","Helvetica Neue",Arial,sans-serif;
+    --srf:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#0B1211; --surface:#121C1A; --surface-2:#182523; --sunken:#0F1917;
+      --ink:#E9F0ED; --body:#C5D2CE; --muted:#899894;
+      --line:#22302D; --line-strong:#33443F;
+      --accent:#43C6A6; --accent-soft:#10302B;
+      --tag:#E9B44E; --tag-fill:#2A2114;
+      --good:#55B47F; --warn:#D89A45; --crit:#E27065;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#0B1211; --surface:#121C1A; --surface-2:#182523; --sunken:#0F1917;
+    --ink:#E9F0ED; --body:#C5D2CE; --muted:#899894;
+    --line:#22302D; --line-strong:#33443F;
+    --accent:#43C6A6; --accent-soft:#10302B;
+    --tag:#E9B44E; --tag-fill:#2A2114;
+    --good:#55B47F; --warn:#D89A45; --crit:#E27065;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper); color: var(--body);
+    font-family: var(--srf); font-size: 17px; line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding-inline: clamp(18px, 5vw, 44px); padding-block: clamp(36px, 7vw, 76px) 64px; }
+  h1, h2, h3, .dsp { font-family: var(--dsp); color: var(--ink); text-wrap: balance; }
+  p { margin: 0 0 1em; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  strong { color: var(--ink); font-weight: 600; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  /* ---------- masthead ---------- */
+  .brandbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; font-family: var(--mono); font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); margin-bottom: 30px; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--ink); }
+  .chip b { font-weight: 700; letter-spacing: .06em; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  .dot.amber { background: var(--tag); }
+
+  h1 { font-size: clamp(38px, 7.4vw, 66px); line-height: 1.02; letter-spacing: -.025em; font-weight: 700; font-variation-settings: "wdth" 92; margin: 0 0 18px; }
+  .standfirst { font-size: clamp(18px, 2.3vw, 21px); line-height: 1.55; color: var(--body); max-width: 62ch; margin: 0 0 28px; }
+  .standfirst em { font-style: normal; color: var(--ink); box-shadow: inset 0 -.45em 0 var(--accent-soft); }
+
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); margin-bottom: 8px; }
+  .fact { background: var(--surface); padding: 14px 16px; }
+  .fact dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .fact dd { margin: 0; font-family: var(--dsp); font-weight: 600; font-size: 19px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .fact dd small { display: block; font-family: var(--srf); font-weight: 400; font-size: 13px; color: var(--muted); letter-spacing: 0; }
+
+  /* ---------- sections ---------- */
+  section { margin-top: 60px; }
+  .shead { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 14px; border-top: 2px solid var(--ink); padding-top: 12px; margin-bottom: 22px; }
+  .snum { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: .08em; }
+  .shead h2 { font-size: clamp(24px, 3.4vw, 31px); line-height: 1.12; letter-spacing: -.018em; font-weight: 600; font-variation-settings: "wdth" 90; margin: 0; }
+  h3 { font-size: 18px; letter-spacing: -.005em; font-weight: 600; margin: 30px 0 8px; }
+  .lede { font-size: 18.5px; color: var(--ink); }
+
+  /* ---------- pillars ---------- */
+  .pillars { display: flex; flex-direction: column; }
+  .pillar { display: grid; grid-template-columns: 128px 1fr; gap: 8px 26px; padding: 20px 0; border-bottom: 1px solid var(--line); }
+  .pillar:first-child { border-top: 1px solid var(--line); }
+  .pkick { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--tag); padding-top: 5px; }
+  .pillar h3 { margin: 0 0 6px; font-size: 19px; }
+  .pillar p { margin: 0; }
+  @media (max-width: 620px) { .pillar { grid-template-columns: 1fr; gap: 4px; } .pkick { padding-top: 0; } }
+
+  /* ---------- receipt ---------- */
+  .receipt { background: var(--surface); border: 1px solid var(--line-strong); font-family: var(--mono); font-size: 13.5px; line-height: 1.75; color: var(--body); padding: 22px clamp(16px, 4vw, 28px); margin: 22px 0; max-width: 520px; box-shadow: 0 1px 0 var(--line), 0 10px 22px -18px rgba(16,27,25,.5); }
+  .receipt .rhead { text-align: center; color: var(--ink); font-weight: 700; letter-spacing: .18em; font-size: 11.5px; text-transform: uppercase; }
+  .receipt .rsub { text-align: center; color: var(--muted); font-size: 11px; letter-spacing: .06em; margin-bottom: 14px; }
+  .rrule { border: 0; border-top: 1px dashed var(--line-strong); margin: 12px 0; }
+  .rline { display: flex; justify-content: space-between; gap: 16px; font-variant-numeric: tabular-nums; }
+  .rline span:last-child { white-space: nowrap; color: var(--ink); }
+  .rline.dim span { color: var(--muted); }
+  .rline.total { font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: 13px; }
+  .rline.total span:last-child { color: var(--accent); font-size: 16px; }
+  .rnote { color: var(--muted); font-size: 11.5px; line-height: 1.6; margin-top: 12px; }
+
+  /* ---------- tables ---------- */
+  .scroll { overflow-x: auto; margin: 18px 0; border: 1px solid var(--line); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 540px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .11em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--surface-2); border-bottom: 1px solid var(--line-strong); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.rule td { border-top: 1px solid var(--line-strong); font-weight: 600; color: var(--ink); }
+  .who { font-family: var(--dsp); font-weight: 600; color: var(--ink); }
+  .dead { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .pos { color: var(--good); } .neg { color: var(--crit); }
+
+  /* ---------- quadrant ---------- */
+  figure { margin: 24px 0; }
+  figure svg { display: block; width: 100%; height: auto; max-width: 100%; }
+  figcaption { font-family: var(--mono); font-size: 11.5px; line-height: 1.6; color: var(--muted); margin-top: 10px; }
+  .q-axis { stroke: var(--line-strong); stroke-width: 1; }
+  .q-grid { stroke: var(--line); stroke-width: 1; }
+  .q-lab { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; fill: var(--muted); }
+  .q-name { font-family: var(--dsp); font-size: 12.5px; font-weight: 500; fill: var(--body); }
+  .q-fill { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+  .q-us { font-family: var(--dsp); font-size: 15px; font-weight: 700; fill: var(--accent); }
+  .q-empty { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; fill: var(--accent); text-transform: uppercase; }
+
+  /* ---------- bars ---------- */
+  .bars { display: flex; flex-direction: column; gap: 14px; margin: 20px 0 6px; }
+  .barrow { display: grid; grid-template-columns: 62px 1fr; align-items: center; gap: 14px; }
+  .barlab { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+  .track { display: flex; height: 26px; background: var(--sunken); }
+  .seg { height: 100%; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 10.5px; color: var(--surface); overflow: hidden; }
+  .seg.s1 { background: var(--muted); }
+  .seg.s2 { background: var(--tag); }
+  .seg.s3 { background: var(--accent); }
+  .barval { font-family: var(--mono); font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
+
+  .tsm { display: flex; flex-direction: column; gap: 10px; margin: 20px 0; }
+  .tsmrow { display: grid; grid-template-columns: 1fr; gap: 4px; }
+  .tsmbar { height: 30px; background: var(--accent); display: flex; align-items: center; padding-left: 12px; min-width: 3px; }
+  .tsmbar.mid { background: var(--tag); }
+  .tsmbar.small { background: var(--ink); }
+  .tsmmeta { font-family: var(--mono); font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 10px; }
+  .tsmmeta b { color: var(--ink); font-weight: 700; }
+
+  /* ---------- callout / risk ---------- */
+  .note { border-left: 3px solid var(--tag); background: var(--tag-fill); padding: 14px 18px; margin: 22px 0; font-size: 16px; }
+  .note p:last-child { margin: 0; }
+  .kill { list-style: none; padding: 0; margin: 18px 0 0; display: flex; flex-direction: column; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .kill li { background: var(--surface); padding: 13px 16px; display: grid; grid-template-columns: 86px 1fr; gap: 16px; align-items: baseline; font-size: 15.5px; }
+  .kill .mo { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--crit); font-weight: 700; }
+  @media (max-width: 560px) { .kill li { grid-template-columns: 1fr; gap: 3px; } }
+
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 16px 0 0; }
+  .steps li { counter-increment: s; position: relative; padding-left: 38px; margin-bottom: 12px; }
+  .steps li::before { content: counter(s, decimal-leading-zero); position: absolute; left: 0; top: 1px; font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: .06em; }
+
+  .flow { font-family: var(--mono); font-size: 12.5px; line-height: 1.9; color: var(--body); background: var(--surface); border: 1px solid var(--line); padding: 18px clamp(14px,3vw,22px); overflow-x: auto; margin: 20px 0; }
+  .flow b { color: var(--accent); font-weight: 700; letter-spacing: .1em; }
+
+  footer { margin-top: 64px; border-top: 2px solid var(--ink); padding-top: 16px; font-family: var(--mono); font-size: 11.5px; line-height: 1.8; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 24px; justify-content: space-between; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <div class="brandbar">
+    <span class="chip"><span class="dot"></span><b>CartIQ</b> consumer</span>
+    <span class="chip"><span class="dot amber"></span><b>ShelfSignal</b> data</span>
+    <span>Pre-seed plan &middot; v1.0 &middot; September 2026</span>
+  </div>
+
+  <h1>The app is not the business.</h1>
+
+  <p class="standfirst">A grocery app where shoppers photograph their receipts, and anyone can ask <em>where is my shopping list cheapest today &mdash; and how healthy is what&rsquo;s in it?</em> The shoppers get the answer free. The by-product is a verified, geo-stamped, item-level shelf-price panel that CPG brands currently pay $2&ndash;$12 per store visit to obtain.</p>
+
+  <dl class="facts">
+    <div class="fact"><dt>Ask</dt><dd>&euro;900k<small>24-month pre-seed</small></dd></div>
+    <div class="fact"><dt>Breakeven</dt><dd>Month 30&ndash;34<small>peak burn &euro;560k</small></dd></div>
+    <div class="fact"><dt>Year 3 revenue</dt><dd>&euro;2.81M<small>base case</small></dd></div>
+    <div class="fact"><dt>Gross margin</dt><dd>86%<small>&euro;3.47 per MAU</small></dd></div>
+    <div class="fact"><dt>LTV / CAC</dt><dd>5&ndash;9&times;<small>payback &lt; 6 months</small></dd></div>
+  </dl>
+
+  <!-- 01 -->
+  <section>
+    <div class="shead"><span class="snum">01</span><h2>Why every previous attempt at this died</h2></div>
+    <p class="lede">Consumer grocery price comparison has a graveyard, and it is worth naming the headstones before proposing another one.</p>
+    <p><strong>mySupermarket</strong> raised at least $23.4M from WPP, Greylock and Pitango and closed in March 2020 after fourteen years, unable to make the model sustainable. <strong>Basket</strong> raised $19.6M on a crowdsourced, Waze-for-groceries thesis and never escaped thin coverage outside dense metros. <strong>Trolley.co.uk</strong> survived, but received a cease-and-desist over the retailer data its comparisons depend on.</p>
+    <p>Three structural failures, every time: <strong>cold-start coverage</strong> (a list optimiser that can price 60% of a basket gives a confidently wrong answer), <strong>weak consumer monetisation</strong> (a weekly-use utility cannot fund itself on subscriptions), and <strong>retailer dependency</strong> (a business one legal letter away from having no data).</p>
+    <p>This plan is three answers to those three failures. If any answer fails, this becomes another headstone &mdash; which is why Section 09 sets dated kill criteria rather than milestones.</p>
+  </section>
+
+  <!-- 02 -->
+  <section>
+    <div class="shead"><span class="snum">02</span><h2>Three mechanics that change the odds</h2></div>
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pkick">Capture</div>
+        <div>
+          <h3>Receipts, not shelf tags</h3>
+          <p>A shelf-label photo yields one price point and requires altruism. A receipt yields 20&ndash;40 price points, is the price <em>actually paid</em> rather than the tag, carries store and timestamp in print, and the shopper scans it for their own reason &mdash; spend tracking. Fetch processes 11M receipts a day on exactly that asymmetry, and licenses the result for 35% of its revenue.</p>
+        </div>
+      </div>
+      <div class="pillar">
+        <div class="pkick">Coverage</div>
+        <div>
+          <h3>Chains price by zone, not by store</h3>
+          <p>The standard objection is that a metro needs 3.2M fresh price points. It doesn&rsquo;t: supermarkets price per chain per regional zone, so 400 stores collapse to 12&ndash;18 price groups. Restrict the catalogue to the ~1,500 SKUs carrying 70% of household spend and the cold start drops by 25&ndash;40&times;. The arithmetic is on the till roll below.</p>
+        </div>
+      </div>
+      <div class="pillar">
+        <div class="pkick">Cross</div>
+        <div>
+          <h3>Price &times; health is empty, and hard to enter</h3>
+          <p>Yuka has 80M+ users scoring health and no price capability &mdash; and cannot build one, because its moat is a public refusal of all brand money. The price apps have no nutrition model and monetise through exactly the brand relationships that poison a health score. Neither side can cross. We start on both.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="receipt">
+      <div class="rhead">Cold-start arithmetic</div>
+      <div class="rsub">one metro &middot; core basket &middot; weekly refresh</div>
+      <hr class="rrule">
+      <div class="rline dim"><span>Grocery stores in metro</span><span>400</span></div>
+      <div class="rline"><span>&rarr; chain &times; zone groups</span><span>15</span></div>
+      <div class="rline dim"><span>Relevant SKUs in market</span><span>8,000</span></div>
+      <div class="rline"><span>&rarr; core basket (70% of spend)</span><span>1,500</span></div>
+      <hr class="rrule">
+      <div class="rline"><span>Price points per week</span><span>22,500</span></div>
+      <div class="rline"><span>&divide; items per receipt</span><span>25</span></div>
+      <div class="rline"><span>Receipts needed per week</span><span>900</span></div>
+      <div class="rline"><span>&divide; receipts per user per week</span><span>3</span></div>
+      <hr class="rrule">
+      <div class="rline total"><span>Active contributors</span><span>300</span></div>
+      <p class="rnote">Naive per-store modelling of the full catalogue needs ~128,000 receipts a week. Three hundred people is a launch party. Thirty thousand is a company that never starts.</p>
+    </div>
+  </section>
+
+  <!-- 03 -->
+  <section>
+    <div class="shead"><span class="snum">03</span><h2>What the shopper actually gets</h2></div>
+    <p>Each step in the loop pays the user before any network effect exists. That is the difference between a product and a data-collection scheme.</p>
+
+    <div class="flow">
+<b>SCAN</b> &rarr; <b>UNDERSTAND</b> &rarr; <b>DECIDE</b> &rarr; <b>CONTRIBUTE</b><br>
+&nbsp;<br>
+Photograph the receipt.   &ldquo;&euro;412 this month. Your personal inflation: +6.2%.<br>
+&nbsp;                         You overpaid &euro;11.40 against the cheapest nearby store.&rdquo;<br>
+&nbsp;<br>
+Open your list.           &ldquo;18 items. Lidl &euro;47.10 &middot; Auchan &euro;54.80 &middot; coverage 94%.<br>
+&nbsp;                         3 items are healthier for the same money.&rdquo;<br>
+&nbsp;<br>
+Your scan refreshes the zone panel for everyone &mdash; anonymised, aggregated, never sold per person.
+    </div>
+
+    <h3>The features that make it a business, not a utility</h3>
+    <ul>
+      <li><strong>Personal inflation rate.</strong> Your CPI on your basket. Works from your receipts alone, at zero network density &mdash; the strongest possible day-one retention hook, and screenshot-shareable.</li>
+      <li><strong>&ldquo;You overpaid &euro;X&rdquo; verdict</strong> after every shop. Turns a passive tracker into a habit with a reward signal.</li>
+      <li><strong>Cheaper <em>and</em> healthier substitution.</strong> The unoccupied cross, expressed as one button.</li>
+      <li><strong>Shrinkflation detector.</strong> Unit price over pack size across time &mdash; impossible without a longitudinal panel, and irresistible to journalists.</li>
+      <li><strong>Two-store split with a time cost.</strong> &ldquo;Splitting saves &euro;9.40 and costs 20 minutes.&rdquo; Households think this way; nobody models it.</li>
+      <li><strong>A published monthly city basket index.</strong> The PR engine and the B2B sales collateral are the same artefact.</li>
+      <li><strong>Confidence-scored prices that visibly decay.</strong> Honesty about staleness is what stops trust collapse when a price is wrong.</li>
+    </ul>
+
+    <div class="note">
+      <p><strong>The bright line.</strong> Money never changes a ranking. Sponsored placements sit outside the price and health ordering, clearly labelled, under a published policy &mdash; and the B2B business carries a separate name so the consumer app&rsquo;s independence is structural, not promised.</p>
+    </div>
+  </section>
+
+  <!-- 04 -->
+  <section>
+    <div class="shead"><span class="snum">04</span><h2>The competitive quadrant</h2></div>
+    <p>Plotted on price intelligence against health intelligence, the upper right is not lightly contested. It is empty.</p>
+
+    <figure>
+      <svg viewBox="0 0 520 380" role="img" aria-label="Two-by-two chart: price intelligence on the horizontal axis, health intelligence on the vertical. Yuka and Open Food Facts sit upper left; Listonic, Bring and Fetch lower left; Basket, Trolley, Flipp and Blix lower right. The upper right quadrant is empty and marked CartIQ.">
+        <rect x="268" y="34" width="232" height="140" class="q-fill" rx="2"></rect>
+        <line x1="46" y1="316" x2="500" y2="316" class="q-axis"></line>
+        <line x1="46" y1="20" x2="46" y2="316" class="q-axis"></line>
+        <line x1="268" y1="20" x2="268" y2="316" class="q-grid" stroke-dasharray="3 4"></line>
+        <line x1="46" y1="174" x2="500" y2="174" class="q-grid" stroke-dasharray="3 4"></line>
+
+        <text x="46" y="336" class="q-lab">low</text>
+        <text x="500" y="336" class="q-lab" text-anchor="end">high &mdash; price intelligence</text>
+        <text x="38" y="316" class="q-lab" text-anchor="end" transform="rotate(-90 38 316)">low</text>
+        <text x="38" y="26" class="q-lab" transform="rotate(-90 38 26)">high &mdash; health intelligence</text>
+
+        <text x="62" y="58" class="q-name">Yuka &mdash; 80M+ users</text>
+        <text x="62" y="80" class="q-name">Open Food Facts &mdash; 3M+ products</text>
+        <text x="62" y="102" class="q-name" fill="var(--muted)">no price data, and structurally</text>
+        <text x="62" y="120" class="q-name" fill="var(--muted)">unable to fund one</text>
+
+        <text x="62" y="212" class="q-name">Listonic &middot; Bring &middot; AnyList</text>
+        <text x="62" y="234" class="q-name">Fetch &middot; Ibotta &middot; Checkout 51</text>
+        <text x="62" y="256" class="q-name" fill="var(--muted)">lists and rewards, no comparison</text>
+
+        <text x="284" y="212" class="q-name">Basket &middot; Trolley &middot; Flipp</text>
+        <text x="284" y="234" class="q-name">Blix &middot; marktguru</text>
+        <text x="284" y="256" class="q-name" fill="var(--muted)">prices and leaflets, no nutrition</text>
+        <text x="284" y="278" class="q-name" fill="var(--muted)">&mdash; and leaflets are not a price list</text>
+
+        <text x="284" y="72" class="q-us">CartIQ</text>
+        <text x="284" y="96" class="q-empty">nobody occupies this quadrant</text>
+        <text x="284" y="124" class="q-name">list &times; price &times; nutrition &times; store,</text>
+        <text x="284" y="144" class="q-name">joined in one query</text>
+      </svg>
+      <figcaption>Entering from the left means building a price panel without ad money. Entering from the right means adding a nutrition model while selling brand placements. Both crossings are blocked by the incumbent&rsquo;s own business model.</figcaption>
+    </figure>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Player</th><th>Data source</th><th>Money</th><th>The gap</th></tr></thead>
+        <tbody>
+          <tr><td class="who">Basket</td><td>Crowdsourced shoppers</td><td>$19.6M raised; ads</td><td>Thin coverage; no health; no receipt loop</td></tr>
+          <tr><td class="who dead">mySupermarket</td><td>Retailer feeds</td><td>$23.4M raised; closed 2020</td><td>The cautionary case, not a competitor</td></tr>
+          <tr><td class="who">Trolley.co.uk</td><td>Online catalogue scraping</td><td>Affiliate</td><td>Online prices only, UK only; already C&amp;D&rsquo;d</td></tr>
+          <tr><td class="who">Flipp &middot; Blix &middot; marktguru</td><td>Retailer-supplied leaflets</td><td>Retail media</td><td>Promotions cannot price a list</td></tr>
+          <tr><td class="who">Yuka</td><td>Open Food Facts + own</td><td>Subs only, ~$12M/yr</td><td>Zero price capability, by constitution</td></tr>
+          <tr><td class="who">Fetch &middot; Ibotta</td><td>Receipts, 11M/day</td><td>Data licensing (35%)</td><td>Rewards, not comparison; no health, no EU</td></tr>
+          <tr><td class="who">Premise &middot; Field Agent &middot; Trax</td><td>Paid gig auditors</td><td>B2B, $2&ndash;12 per task</td><td>Our marginal cost per observation is &lt;&euro;0.01</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 05 -->
+  <section>
+    <div class="shead"><span class="snum">05</span><h2>Market</h2></div>
+    <p>Bottom-up, on a launch country of roughly Polish scale: 14.8M households spending ~&euro;3,600 a year on groceries, or ~&euro;53B of addressable spend.</p>
+
+    <div class="tsm">
+      <div class="tsmrow">
+        <div class="tsmbar" style="width:100%"></div>
+        <div class="tsmmeta"><span><b>TAM &euro;130M</b> / yr</span><span>0.25% of national grocery spend, monetisable via media + data + subs</span></div>
+      </div>
+      <div class="tsmrow">
+        <div class="tsmbar mid" style="width:17.7%"></div>
+        <div class="tsmmeta"><span><b>SAM &euro;23M</b> / yr</span><span>5.2M price-motivated smartphone households in metros &ge;200k</span></div>
+      </div>
+      <div class="tsmrow">
+        <div class="tsmbar small" style="width:2.2%"></div>
+        <div class="tsmmeta"><span><b>SOM &euro;2.8M</b> by year 3</span><span>700k MAU &asymp; 9% of SAM &mdash; matching the base case bottom-up</span></div>
+      </div>
+    </div>
+
+    <h3>Why 2026 and not 2019</h3>
+    <p>The enabling shift is technical and recent: <strong>vision-model receipt extraction</strong> turned messy multilingual thermal paper from a research problem into a ~&euro;0.004 API call in about twenty-four months. Around it, 74% of consumers report noticing rising prices, 41% have shifted to discounters, the median shopper abandons a loyal brand at a 16% price rise, off-site retail media is growing 29.5% a year while 89% of incremental spend goes to two platforms, and Open Food Facts has crossed 3M products &mdash; making the health layer free infrastructure instead of a multi-year data project.</p>
+    <p><strong>Geography (assumption, testable).</strong> This plan assumes a CEE metro launch &mdash; Warsaw or Kyiv &mdash; on chain concentration, price sensitivity, engineering cost and the underrated advantage of mandatory fiscal receipts, which are standardised and machine-friendly. Launch one metro, not one country: thin national coverage is precisely how Basket stalled.</p>
+  </section>
+
+  <!-- 06 -->
+  <section>
+    <div class="shead"><span class="snum">06</span><h2>How it makes money</h2></div>
+    <p>Four lines, deliberately sequenced so the company never depends on consumer monetisation &mdash; the failure that closed mySupermarket.</p>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Line</th><th>What is sold</th><th>Price</th><th class="num">Y3 share</th></tr></thead>
+        <tbody>
+          <tr><td class="who">ShelfSignal data</td><td>Aggregated chain/zone/SKU price feeds, promo detection, gap alerts, shrinkflation tracking</td><td>&euro;1.5k&ndash;12k / month</td><td class="num">39%</td></tr>
+          <tr><td class="who">Retail media</td><td>Labelled placements and receipt-verified coupon redemption</td><td>&euro;0.50&rarr;&euro;2.00 per MAU/yr</td><td class="num">50%</td></tr>
+          <tr><td class="who">Premium</td><td>History, split optimisation, alerts, diet constraints, household sharing</td><td>&euro;17.99 / year</td><td class="num">11%</td></tr>
+          <tr><td class="who">Affiliate</td><td>Handoff to online baskets where welcomed</td><td>Opportunistic</td><td class="num">&lt;1%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Never sold:</strong> individual-level purchase data. Aggregated panel only, opt-in, receipt images deleted after extraction. That is a GDPR requirement and the trust guarantee the consumer app runs on &mdash; and the two are the same decision.</p>
+
+    <div class="receipt">
+      <div class="rhead">Unit economics</div>
+      <div class="rsub">per monthly active user &middot; year 3 steady state</div>
+      <hr class="rrule">
+      <div class="rline"><span>Retail media</span><span>&euro;2.00</span></div>
+      <div class="rline"><span>Premium (3.5% &times; &euro;13 net)</span><span>&euro;0.46</span></div>
+      <div class="rline"><span>Data licensing, allocated</span><span>&euro;1.57</span></div>
+      <hr class="rrule">
+      <div class="rline"><span>Revenue per MAU</span><span>&euro;4.03</span></div>
+      <div class="rline dim"><span>Receipt extraction (52 &times; &euro;0.004)</span><span>&minus;&euro;0.21</span></div>
+      <div class="rline dim"><span>Infrastructure &amp; catalogue ops</span><span>&minus;&euro;0.26</span></div>
+      <div class="rline dim"><span>Support &amp; moderation</span><span>&minus;&euro;0.09</span></div>
+      <hr class="rrule">
+      <div class="rline total"><span>Gross profit &middot; 86%</span><span>&euro;3.47</span></div>
+      <p class="rnote">CAC target &euro;0.80&ndash;1.60 blended, achievable only because acquisition is organic: shared household lists, a screenshot-friendly personal inflation figure, and press citing the basket index. Yuka reached profitability with zero traditional marketing spend &mdash; that is the proof this category can be won that way. LTV &asymp; &euro;7.50 over a 26-month life.</p>
+    </div>
+
+    <p><strong>The supply side is almost free.</strong> Three hundred active contributors sustain a metro. Paying the top cohort &euro;3 a month costs ~&euro;900 a month per metro. Buying the same observation volume from a paid-audit vendor would cost roughly &euro;45,000 a month.</p>
+  </section>
+
+  <!-- 07 -->
+  <section>
+    <div class="shead"><span class="snum">07</span><h2>Financials</h2></div>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Base case</th><th class="num">Year 1</th><th class="num">Year 2</th><th class="num">Year 3</th></tr></thead>
+        <tbody>
+          <tr><td>Markets</td><td class="num">1 metro</td><td class="num">5 metros</td><td class="num">National +1</td></tr>
+          <tr><td>Average MAU</td><td class="num">30,000</td><td class="num">200,000</td><td class="num">700,000</td></tr>
+          <tr><td>Premium</td><td class="num">&euro;12k</td><td class="num">&euro;78k</td><td class="num">&euro;319k</td></tr>
+          <tr><td>Retail media</td><td class="num">&euro;15k</td><td class="num">&euro;200k</td><td class="num">&euro;1,400k</td></tr>
+          <tr><td>Data licensing</td><td class="num">&euro;60k</td><td class="num">&euro;350k</td><td class="num">&euro;1,090k</td></tr>
+          <tr class="rule"><td>Total revenue</td><td class="num">&euro;87k</td><td class="num">&euro;630k</td><td class="num">&euro;2,809k</td></tr>
+          <tr><td>Total costs</td><td class="num">&euro;285k</td><td class="num">&euro;960k</td><td class="num">&euro;2,580k</td></tr>
+          <tr class="rule"><td>EBITDA</td><td class="num neg">&minus;&euro;198k</td><td class="num neg">&minus;&euro;330k</td><td class="num pos">+&euro;229k</td></tr>
+          <tr><td>Cumulative</td><td class="num neg">&minus;&euro;198k</td><td class="num neg">&minus;&euro;528k</td><td class="num neg">&minus;&euro;299k</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Revenue mix shifts from pilots to platform</h3>
+    <div class="bars">
+      <div class="barrow"><span class="barlab">Year 1</span>
+        <div><div class="track"><div class="seg s1" style="width:13.8%"></div><div class="seg s2" style="width:17.2%"></div><div class="seg s3" style="width:69.0%">data pilots</div></div></div>
+      </div>
+      <div class="barrow"><span class="barlab">Year 2</span>
+        <div><div class="track"><div class="seg s1" style="width:12.4%"></div><div class="seg s2" style="width:31.7%">media</div><div class="seg s3" style="width:55.6%">data</div></div></div>
+      </div>
+      <div class="barrow"><span class="barlab">Year 3</span>
+        <div><div class="track"><div class="seg s1" style="width:11.4%"></div><div class="seg s2" style="width:49.8%">retail media</div><div class="seg s3" style="width:38.8%">data</div></div></div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--muted)"></i>Premium subscriptions</span>
+      <span><i style="background:var(--tag)"></i>Retail media</span>
+      <span><i style="background:var(--accent)"></i>ShelfSignal data</span>
+    </div>
+
+    <h3>Scenarios</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Year 3</th><th class="num">Bear</th><th class="num">Base</th><th class="num">Bull</th></tr></thead>
+        <tbody>
+          <tr><td>MAU</td><td class="num">220,000</td><td class="num">700,000</td><td class="num">1,800,000</td></tr>
+          <tr><td>Revenue</td><td class="num">&euro;640k</td><td class="num">&euro;2.81M</td><td class="num">&euro;8.4M</td></tr>
+          <tr><td>EBITDA</td><td class="num neg">&minus;&euro;780k</td><td class="num pos">+&euro;229k</td><td class="num pos">+&euro;2.9M</td></tr>
+          <tr><td>Trigger</td><td>Coverage stalls, no B2B contracts</td><td>Plan holds</td><td>Index goes national in press; enterprise data deals</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The bear case is survivable rather than terminal: at &euro;640k of revenue with a cut cost base this is a small profitable data company serving three or four B2B customers. That is an unexciting outcome, not a zero &mdash; which is unusual for this category and is most of the reason the risk is worth taking.</p>
+
+    <h3>Use of funds &mdash; &euro;900k over 24 months</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Allocation</th><th class="num">Amount</th><th class="num">Share</th></tr></thead>
+        <tbody>
+          <tr><td>Engineering &amp; product</td><td class="num">&euro;430k</td><td class="num">48%</td></tr>
+          <tr><td>Data &amp; catalogue operations</td><td class="num">&euro;135k</td><td class="num">15%</td></tr>
+          <tr><td>Growth &amp; community</td><td class="num">&euro;160k</td><td class="num">18%</td></tr>
+          <tr><td>Contributor incentives</td><td class="num">&euro;80k</td><td class="num">9%</td></tr>
+          <tr><td>Legal, compliance, G&amp;A</td><td class="num">&euro;95k</td><td class="num">10%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Peak cumulative burn is ~&euro;560k, so the raise carries roughly 60% headroom against the base plan.</p>
+  </section>
+
+  <!-- 08 -->
+  <section>
+    <div class="shead"><span class="snum">08</span><h2>The risks that actually matter</h2></div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Risk</th><th>Severity</th><th>Answer</th></tr></thead>
+        <tbody>
+          <tr><td class="who">Cold-start coverage fails</td><td class="neg">Critical</td><td>Zone grouping (25&ndash;40&times;), core-basket scope, a paid seeding squad for six weeks, and no district marketed below 85% coverage</td></tr>
+          <tr><td class="who">Consumer revenue too weak</td><td>High</td><td>B2B-primary by design; consumer is 11% of Y3 revenue</td></tr>
+          <tr><td class="who">Retailer hostility, C&amp;D</td><td>Medium</td><td>Receipts are the user&rsquo;s own record and legally clean; scraping is secondary and suspendable per retailer; no retailer dependency is load-bearing</td></tr>
+          <tr><td class="who">Yuka or Fetch adds the missing half</td><td class="neg">Medium-High</td><td>Yuka is blocked by its own no-brand-money constitution; Fetch has no health data or EU footprint. Speed and local catalogue depth are the defence &mdash; and realistically this also defines the exit</td></tr>
+          <tr><td class="who">GDPR and privacy</td><td>High</td><td>Aggregated only, opt-in, images deleted post-extraction, DPO by Y2; privacy marketed as a feature rather than absorbed as a cost</td></tr>
+          <tr><td class="who">Solo-founder bandwidth</td><td>High</td><td>Hire data ops early; hold the MVP to four features and refuse everything else</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 09 -->
+  <section>
+    <div class="shead"><span class="snum">09</span><h2>Verdict, and when to stop</h2></div>
+    <p class="lede">Yes, this is a business &mdash; but not the business it first looks like.</p>
+    <p>As a consumer price-comparison app, the expected outcome is a well-loved product that cannot pay for itself, and the category has a clear track record of exactly that. As a consumer-funded data acquisition machine for a B2B price panel, with a health cross no incumbent can copy, the economics work: 86% gross margin, LTV/CAC of 5&ndash;9&times;, breakeven inside three years on under &euro;600k of cumulative burn.</p>
+    <p>The realistic band is a <strong>&euro;3&ndash;10M regional data-and-consumer business within four to five years</strong>, with credible acquirers in retail intelligence (NielsenIQ, Circana, Profitero), receipts (Fetch), leaflets (Blix, Bonial), or a health app that needs price. It is <em>not</em> venture-scale in one country &mdash; multi-country replication is what changes that, and the cost of building each market&rsquo;s catalogue is the variable that decides whether replication is cheap. Test that in year two, not year four.</p>
+
+    <h3>Kill criteria &mdash; decide honestly against these</h3>
+    <ul class="kill">
+      <li><span class="mo">Month 06</span><span>Core-basket coverage below 70%, or fewer than 200 weekly contributors &rarr; the crowdsourcing model does not work. Stop, or pivot to scraping plus B2B only.</span></li>
+      <li><span class="mo">Month 09</span><span>Week-4 retention below 20% &rarr; the spend-tracker hook is not habit-forming, and the whole loop fails with it.</span></li>
+      <li><span class="mo">Month 14</span><span>Zero paying ShelfSignal contracts &rarr; the B2B thesis is wrong and consumer revenue cannot carry the company. Wind down or sell the data asset.</span></li>
+      <li><span class="mo">Month 18</span><span>Blended CAC above &euro;4 with organic share under 50% &rarr; the organic path is closed and the economics do not survive paid acquisition.</span></li>
+    </ul>
+
+    <h3>First 90 days &mdash; cheapest possible de-risking</h3>
+    <ol class="steps">
+      <li>Score three candidate metros against the geography framework and pick one.</li>
+      <li>Collect 500 real receipts there and measure actual extraction accuracy and cost per receipt. This single test de-risks more of the plan than anything else you can do for the money.</li>
+      <li>Measure real price dispersion on 200 core SKUs across the metro&rsquo;s chains. <strong>Under ~10% dispersion, the consumer proposition is too weak and the plan should be reconsidered regardless of everything else on this page.</strong></li>
+      <li>Test the zone hypothesis empirically: do stores of one chain in one city actually price identically? Quantify it.</li>
+      <li>Ship the receipt-scan and spend-tracker loop to 100 users; instrument scans per user per week.</li>
+      <li>Take the dispersion finding to five CPG brands as a ShelfSignal pilot conversation &mdash; before the app is finished.</li>
+    </ol>
+  </section>
+
+  <footer>
+    <span>CartIQ &middot; ShelfSignal &mdash; pre-seed plan v1.0, September 2026</span>
+    <span>Full plan, sources and workings: grocery-price-app/BUSINESS_PLAN.md</span>
+  </footer>
+</div>
