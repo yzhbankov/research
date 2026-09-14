@@ -8,37 +8,91 @@ At that point, hand-waving stops working. You need numbers — not memorized tri
 
 This article is the reference I wish I had. It collects the figures of merit for essentially every technology class that shows up in a system design interview — compute, load balancing, API rate limiting, auth and ID generation, caching, relational databases, consistency and quorums, NoSQL stores, search, streaming and messaging, stream processing, workflow engines, object storage and CDN, analytics and lakehouses, observability, vector search, ML and LLM serving, graph and geospatial indexes, real-time media, coordination, storage hardware, serverless, Kubernetes, serialization, probabilistic structures, client-side budgets, availability, multi-region DR and cost — together with the back-of-the-envelope math that turns them into an architecture.
 
+**How this is organized.** Nine parts, ~23,000 words, about 90 minutes end to end — but it is built to be read in pieces. Part 1 is the foundation; Parts 2–7 walk the stack from the load balancer down to the disk and out to the bill; Part 8 works nine complete capacity estimates; Part 9 is drills. Every section opens with a one-line takeaway tagged Tier 1, 2 or 3, so you can tell at a glance what to memorize and what to merely recognize.
+
 A word on precision before we start. **These are order-of-magnitude numbers.** Your hardware, your payload sizes, your access patterns and your tuning will move any of them by 2–5×. That is fine. Interviews reward *calibration*, not precision: knowing that a Redis GET is ~0.2 ms and not 20 ms, that a Postgres node does ~10k writes/sec and not 10M, that a Kafka broker holds ~4,000 partitions and not 4 million. Being right to within an order of magnitude, and being explicit that you are estimating, is exactly the behavior a strong interviewer is looking for.
+
+---
+
+## How to use this guide
+
+There are ~250 numbers in here. **You do not need to memorize them all** — and trying to is the wrong preparation. They fall into three tiers, and every section below is tagged with the tier it belongs to.
+
+| Tier | What it means | How many | What to do |
+|---|---|---|---|
+| **Tier 1** | You should be able to say it without thinking | **~40 numbers** | **Memorize.** These come up in almost every interview |
+| **Tier 2** | You should know the shape and be within 10× | ~80 numbers | Read twice, recognize when they matter |
+| **Tier 3** | You should know that a limit *exists* and roughly where | the rest | Look up when the question calls for it |
+
+Tier 1 is short enough to fit on one page: the cheat sheet right after the contents compresses the whole article to a screen, and the flashcard list at the very end is exactly those forty numbers.
+
+### Three ways to read this
+
+**The 45-minute cram** (interview tomorrow): read the cheat sheet below, then Part 1 (foundations), then §10 (relational), §9 (caching), §15 (streaming), §12 (sharding thresholds), then the worked examples in Part 8. Skip everything else.
+
+**The one-week prep** (interview next week): one part per day, in order. After each part, close the page and try to re-derive the Tier 1 numbers from memory. Finish with the drills in Part 9 — do them cold, not while reading.
+
+**The reference** (on the job, or mid-loop): jump straight to the section you need from the table of contents. Every section leads with its single most important number so you can grab it in five seconds.
+
+### Why this works better than memorizing
+
+Interviewers are not testing recall — they are testing whether your architecture is *physically possible*. Almost every design question reduces to the same five-step chain, and each step needs exactly one or two numbers:
+
+```
+users → requests/second → bytes/second and bytes/year → machines → what breaks first
+```
+
+If you can run that chain out loud with roughly correct constants, you will outperform a candidate who knows twice as many technologies but cannot size any of them.
 
 ---
 
 ## Table of Contents
 
+- [How to use this guide](#how-to-use-this-guide)
+- [The cheat sheet: every number on one page](#the-cheat-sheet-every-number-on-one-page)
+
+**[Part 1 — Foundations](#part-1--foundations)**
+
 1. [Why numbers win interviews](#1-why-numbers-win-interviews)
 2. [The latency ladder every engineer should know](#2-the-latency-ladder-every-engineer-should-know)
 3. [The back-of-the-envelope toolkit](#3-the-back-of-the-envelope-toolkit)
 4. [Network, geography and protocol latency](#4-network-geography-and-protocol-latency)
+
+**[Part 2 — The request path](#part-2--the-request-path)**
+
 5. [Application servers: requests per second per box](#5-application-servers-requests-per-second-per-box)
 6. [Load balancers, proxies and API gateways](#6-load-balancers-proxies-and-api-gateways)
 7. [API design: rate limits, quotas, pagination and timeouts](#7-api-design-rate-limits-quotas-pagination-and-timeouts)
 8. [Identity, auth, ID generation and clocks](#8-identity-auth-id-generation-and-clocks)
+
+**[Part 3 — Data at rest](#part-3--data-at-rest)**
+
 9. [Caching: Redis, Memcached and friends](#9-caching-redis-memcached-and-friends)
 10. [Relational databases: PostgreSQL and MySQL](#10-relational-databases-postgresql-and-mysql)
 11. [Consistency, quorums and distributed transactions](#11-consistency-quorums-and-distributed-transactions)
 12. [When to shard: the thresholds table](#12-when-to-shard-the-thresholds-table)
 13. [NoSQL: DynamoDB, Cassandra, ScyllaDB, MongoDB, HBase](#13-nosql-dynamodb-cassandra-scylladb-mongodb-hbase)
 14. [Search engines: Elasticsearch and OpenSearch](#14-search-engines-elasticsearch-and-opensearch)
+
+**[Part 4 — Data in motion](#part-4--data-in-motion)**
+
 15. [Streaming and messaging](#15-streaming-and-messaging)
 16. [Stream processing: Flink, Spark, Kafka Streams](#16-stream-processing-flink-spark-kafka-streams)
 17. [Workflow orchestration and background jobs](#17-workflow-orchestration-and-background-jobs)
 18. [Object storage and CDN](#18-object-storage-and-cdn)
 19. [OLAP and warehouses](#19-olap-and-warehouses)
 20. [Time series and observability](#20-time-series-and-observability)
+
+**[Part 5 — Specialized workloads](#part-5--specialized-workloads)**
+
 21. [Vector databases and ANN search](#21-vector-databases-and-ann-search)
 22. [ML and LLM serving](#22-ml-and-llm-serving)
 23. [Graph databases](#23-graph-databases)
 24. [Geospatial indexing](#24-geospatial-indexing)
 25. [Real-time media, live streaming and notifications](#25-real-time-media-live-streaming-and-notifications)
+
+**[Part 6 — The infrastructure underneath](#part-6--the-infrastructure-underneath)**
+
 26. [Coordination: ZooKeeper, etcd, Consul, Raft](#26-coordination-zookeeper-etcd-consul-raft)
 27. [Storage hardware](#27-storage-hardware)
 28. [Serverless and edge](#28-serverless-and-edge)
@@ -46,16 +100,74 @@ A word on precision before we start. **These are order-of-magnitude numbers.** Y
 30. [Serialization, compression and protocol overhead](#30-serialization-compression-and-protocol-overhead)
 31. [Probabilistic data structures](#31-probabilistic-data-structures)
 32. [Client-side, mobile and frontend budgets](#32-client-side-mobile-and-frontend-budgets)
+
+**[Part 7 — Running it in production](#part-7--running-it-in-production)**
+
 33. [Availability, reliability and error budgets](#33-availability-reliability-and-error-budgets)
 34. [Multi-region, disaster recovery, RPO and RTO](#34-multi-region-disaster-recovery-rpo-and-rto)
 35. [Cost figures of merit](#35-cost-figures-of-merit)
+
+**[Part 8 — Putting it together](#part-8--putting-it-together)**
+
 36. [Nine worked capacity estimates](#36-nine-worked-capacity-estimates)
 37. [Interview mechanics: where the numbers go](#37-interview-mechanics-where-the-numbers-go)
-38. [The one-page cheat sheet](#38-the-one-page-cheat-sheet)
+
+**[Part 9 — Practice](#part-9--practice)**
+
+38. [Drills: twenty questions, cold](#38-drills-twenty-questions-cold)
+- [The Tier 1 flashcard list](#the-tier-1-flashcard-list)
+
+---
+
+## The cheat sheet: every number on one page
+
+*Skim it now, come back to it the night before. Everything below this is the explanation.*
+
+**Latency**
+`L1 1 ns · RAM 100 ns · NVMe 50 µs · same-DC RTT 0.5 ms · cross-AZ 1 ms · US→EU 90 ms · HDD seek 8 ms · TLS 1.3 = 1 RTT`
+
+**Throughput per box**
+`App server 1k–5k rps · NGINX 50k–500k rps · Redis 100k ops/s (1M pipelined) · Postgres 20k reads/s, 10k writes/s · MySQL 50k reads/s · Cassandra 20k writes/s · Scylla 200k+ · Elasticsearch 20k docs/s indexing · Kafka broker 100+ MB/s · S3 3,500 writes/s per prefix · SFU 1k streams · bcrypt 10 hashes/s per core`
+
+**Capacity thresholds**
+`Postgres partition at 100M rows, shard at 1–2 TB · MySQL shard at 500 GB–1 TB · Redis shard at 25–50 GB · Cassandra partition < 100 MB, node 1–2 TB · Dynamo partition 3,000 RCU / 1,000 WCU / 10 GB, item 400 KB · ES shard 10–50 GB, heap ≤ 31 GB · Kafka ≤ 4,000 partitions/broker, message ≤ 1 MB · Mongo doc ≤ 16 MB · etcd ≤ 8 GB · Prometheus ≤ 10M series · Temporal history ≤ 50 MB · Lambda 15 min / 10 GB`
+
+**Namespaces**
+`Kafka 200k partitions (ZK) / millions (KRaft) · Pulsar millions of topics · RabbitMQ 10k–100k queues/node · Kinesis 500 shards/stream · Pub/Sub 10k topics/project · SNS 100k topics`
+
+**IDs, clocks, geo**
+`Snowflake 64-bit = 41 ts + 10 node + 12 seq → 4M IDs/s/node · UUIDv7 for index locality · NTP ±1–50 ms · geohash-6 = 1.2 km · H3 res 8 = 0.74 km² · S2 L30 = 1 cm²`
+
+**Consistency**
+`R + W > N · quorum write ≈ 2–5 ms in-region, 60–100 ms cross-region · 2PC = 2 RTT and blocking · async replica lag 1 ms–1 s · read-your-writes = pin to primary 1–5 s`
+
+**Conversions**
+`1M/day ≈ 12 rps · 1B/day ≈ 11.6k rps · peak = 3× average · 86,400 s/day · 31.5M s/year · 1 ms RTT per 100 km · 1 token ≈ 4 chars · clients ÷ poll interval = rps`
+
+**Laws**
+`Concurrency = rps × latency (Little) · Queue delay explodes past 70–80% utilization · 5 serial 99.9% services = 99.5% · 99.99% = 52 min/year`
+
+**Resilience**
+`Retry budget ≤ 10% with full jitter · circuit breaker at 50% errors / 10 s · RPO/RTO: backup hours/hours, warm standby seconds/minutes, active-active ~0/seconds · autoscaling takes 1–5 min`
+
+**Design ladder (say it in this order)**
+`Index → cache → read replica → CDN → async/queue → partition → archive → shard → multi-region`
+
+---
+
+# Part 1 — Foundations
+
+*Sections 1–4 · ~10 min · **Read this part even if you skip everything else.***
+
+Four sections that everything else is built on: why numbers matter in the room, the latency ladder from CPU cache to the far side of the planet, the arithmetic that turns "10 million users" into "how many machines", and what the network and the speed of light cost you.
+
+If you only ever internalize one part of this article, make it this one. Every later number is a consequence of these.
 
 ---
 
 ## 1. Why numbers win interviews
+
+> **Tier 1 — memorize this.** The habit that scores: **say the number, say the assumption, say the tolerance** — in one sentence.
 
 A system design interview measures four things: structured problem solving, breadth of technology knowledge, depth in at least one area, and **quantitative judgment**. The last one is where most candidates lose points, and it is the easiest to fix.
 
@@ -74,6 +186,8 @@ The failure modes to avoid are equally clear: inventing suspiciously precise fig
 ---
 
 ## 2. The latency ladder every engineer should know
+
+> **Tier 1 — memorize this.** RAM 100 ns · SSD 100 µs · datacenter round trip 0.5 ms · cross-continent 100 ms. Every other latency in this article is a consequence of these four.
 
 This is the foundation. Jeff Dean's "Latency Numbers Every Programmer Should Know" is still the single most valuable table in system design, modernized here for NVMe, current CPUs and cloud networks.
 
@@ -127,6 +241,8 @@ This is the foundation. Jeff Dean's "Latency Numbers Every Programmer Should Kno
 ---
 
 ## 3. The back-of-the-envelope toolkit
+
+> **Tier 1 — memorize this.** **1M requests/day ≈ 12 rps**, peak is 3× average, and concurrency = throughput × latency.
 
 ### Time and scale constants
 
@@ -200,6 +316,8 @@ bandwidth = qps × avg_response_bytes × 8   (bits/sec)
 
 ## 4. Network, geography and protocol latency
 
+> **Tier 1 — memorize this.** **1 ms of round trip per 100 km** of fiber — and never put a cross-region call in a user-facing path.
+
 Physics sets the floor. Light travels at ~300,000 km/s in vacuum and roughly **200,000 km/s in fiber**, and real routes are 1.5–2× longer than the great-circle distance.
 
 > **The rule:** ~**5 µs per km one way**, ~**10 µs per km round trip** → **1 ms of RTT per 100 km of fiber**, before any router, firewall or middlebox.
@@ -253,7 +371,17 @@ Physics sets the floor. Light travels at ~300,000 km/s in vacuum and roughly **2
 
 ---
 
+# Part 2 — The request path
+
+*Sections 5–8 · ~12 min*
+
+Follow a single request from the client to your business logic: through the load balancer, past the rate limiter, through authentication, into an application server. Each hop has a capacity ceiling and a latency cost, and interviewers love to ask about exactly the ones people skip — how many requests a server *really* handles, what a TLS handshake costs, and why the login endpoint is the most expensive route in most products.
+
+---
+
 ## 5. Application servers: requests per second per box
+
+> **Tier 1 — memorize this.** A typical API server doing real work handles **1,000–5,000 rps**. Size it at 70% CPU, not 100%.
 
 The single most-asked number: **how much traffic does one server handle?** The honest answer is "it depends on what it does per request," so carry a ladder.
 
@@ -316,6 +444,8 @@ If a request burns 5 ms of CPU, one core does 200 rps, so a 16-core box does ~3,
 
 ## 6. Load balancers, proxies and API gateways
 
+> **Tier 2 — know the shape.** One proxy box does **50k–500k rps**; the expensive part is TLS handshakes at **1–2k/core/s** with RSA.
+
 | System | Throughput | Latency added | Concurrent connections |
 |---|---|---|---|
 | NGINX (static/reverse proxy) | 50k–500k rps per box; 10k–50k rps per core | **0.1–1 ms** | 100k–1M |
@@ -352,6 +482,8 @@ A fleet taking 50,000 new HTTPS connections per second with RSA certs needs **~3
 ---
 
 ## 7. API design: rate limits, quotas, pagination and timeouts
+
+> **Tier 2 — know the shape.** Token bucket for limits, **retry budget ≤ 10%** with full jitter, and cursor pagination past a few thousand rows.
 
 Every design that exposes an API gets asked "how do you stop one client from taking the system down?" These are the numbers behind the answer.
 
@@ -400,6 +532,8 @@ Every design that exposes an API gets asked "how do you stop one client from tak
 ---
 
 ## 8. Identity, auth, ID generation and clocks
+
+> **Tier 2 — know the shape.** **bcrypt is ~10 hashes/second per core** — login is your most expensive endpoint. Snowflake gives 4M IDs/s per node.
 
 ### Password hashing — the most-forgotten capacity number
 
@@ -458,7 +592,19 @@ Consequences: **last-write-wins by wall clock can silently lose a write** when c
 
 ---
 
+# Part 3 — Data at rest
+
+*Sections 9–14 · ~18 min · **The heart of most interviews.***
+
+This is where the interview usually lands and where candidates usually lose points. Cache first, then the relational databases and the question every interview asks — *when do you shard?* — then the consistency model that decision commits you to, then the NoSQL stores and search engines you would reach for instead.
+
+Section 12 (the sharding thresholds table) is the single most useful page in this article. If you print one thing, print that.
+
+---
+
 ## 9. Caching: Redis, Memcached and friends
+
+> **Tier 1 — memorize this.** Redis is **0.2–1 ms and ~100k ops/s per node**; shard past 25–50 GB. A 95% hit rate is a **20× cut** in origin load.
 
 ### Redis / Valkey figures of merit
 
@@ -535,6 +681,8 @@ With a 95% hit ratio, 0.5 ms cache and 20 ms DB: `0.95 × 0.5 + 0.05 × 20 = 1.5
 ---
 
 ## 10. Relational databases: PostgreSQL and MySQL
+
+> **Tier 1 — memorize this.** One node: **20k reads/s, 10k writes/s, 1–2 TB**. Partition at 100M rows, shard past 1–2 TB.
 
 This is where interviews live or die, because "when do I shard?" is the single most common follow-up question in the entire format.
 
@@ -625,6 +773,8 @@ This is where interviews live or die, because "when do I shard?" is the single m
 
 ## 11. Consistency, quorums and distributed transactions
 
+> **Tier 2 — know the shape.** **R + W > N** for strong reads, and strong consistency across regions costs **60–100 ms per write**.
+
 ### Quorum math
 
 With `N` replicas, `W` write acks and `R` read responses, **strong consistency requires `R + W > N`**.
@@ -675,6 +825,8 @@ With `N` replicas, `W` write acks and `R` read responses, **strong consistency r
 
 ## 12. When to shard: the thresholds table
 
+> **Tier 1 — memorize this.** This table is the answer to the most common follow-up question in the format. Know the rows for your stack cold.
+
 A compact answer to "at what point do you split this?" for every storage technology.
 
 | Technology | Unit | Comfortable | Act at | Hard limit |
@@ -703,6 +855,8 @@ A compact answer to "at what point do you split this?" for every storage technol
 ---
 
 ## 13. NoSQL: DynamoDB, Cassandra, ScyllaDB, MongoDB, HBase
+
+> **Tier 1 — memorize this.** DynamoDB: **3,000 RCU / 1,000 WCU / 10 GB per partition, 400 KB items.** Cassandra: keep partitions **under 100 MB**.
 
 ### DynamoDB — the limits *are* the design
 
@@ -786,6 +940,8 @@ A compact answer to "at what point do you split this?" for every storage technol
 
 ## 14. Search engines: Elasticsearch and OpenSearch
 
+> **Tier 2 — know the shape.** Shard size **10–50 GB**, heap **≤ 31 GB**, and oversharding costs more than it saves.
+
 | Metric | Value |
 |---|---|
 | **Shard size sweet spot** | **10–50 GB** — 20–25 GB for search workloads, 30–50 GB for logs |
@@ -827,7 +983,19 @@ For 3 TB of logs: 3,000 / 30 = **100 primaries**, ×2 with replicas = 200 shards
 
 ---
 
+# Part 4 — Data in motion
+
+*Sections 15–20 · ~18 min*
+
+Nothing stays in one database. This part covers the pipes: message brokers and event streams, the processors that read them, the workflow engines that coordinate long-running work, object storage and CDNs for bulk bytes, analytical stores for the queries your OLTP database must never run, and the observability stack that tells you any of it is working.
+
+The recurring theme: **throughput is easy, ordering and retention are what cost you.**
+
+---
+
 ## 15. Streaming and messaging
+
+> **Tier 1 — memorize this.** **≤ 4,000 partitions per broker, ~10 MB/s per partition, RF 3, 1 MB messages.** Partitions are your consumer parallelism.
 
 ### Apache Kafka — the numbers interviewers probe
 
@@ -906,6 +1074,8 @@ A frequently asked, rarely answered question — the namespace limit is often wh
 
 ## 16. Stream processing: Flink, Spark, Kafka Streams
 
+> **Tier 2 — know the shape.** Flink is **10–100 ms**; your checkpoint interval is also your worst-case replay window.
+
 | Framework | Throughput | Latency | State | Notes |
 |---|---|---|---|---|
 | **Apache Flink** | **1M+ events/s per cluster**, 100k–500k/s per task slot | **10–100 ms** (true streaming) | RocksDB backend, **GBs–TBs** of state | Checkpoint interval **1 s – 5 min**; exactly-once via barriers; the default choice for stateful streaming |
@@ -924,6 +1094,8 @@ A frequently asked, rarely answered question — the namespace limit is often wh
 ---
 
 ## 17. Workflow orchestration and background jobs
+
+> **Tier 3 — know that the limit exists.** **Workers = arrival rate × job duration.** Airflow schedules in minutes, Temporal in milliseconds.
 
 Almost every design ends up with "and then we process it asynchronously." These are the engines and their limits.
 
@@ -950,6 +1122,8 @@ workers = arrival_rate × job_duration
 ---
 
 ## 18. Object storage and CDN
+
+> **Tier 2 — know the shape.** **3,500 writes / 5,500 reads per second per prefix**, and 100–200 ms to first byte. Bulk bytes, never a hot path.
 
 ### S3 / GCS / Azure Blob
 
@@ -1010,6 +1184,8 @@ The Dropbox/Google Drive family of questions lives on these numbers.
 
 ## 19. OLAP and warehouses
 
+> **Tier 2 — know the shape.** Columnar gives you **5–10× compression × 10–100× column pruning** — that is why a 1 TB scan becomes a 10 GB scan.
+
 | System | Scan rate | Query latency | Key numbers |
 |---|---|---|---|
 | **ClickHouse** | **100M–2B rows/s per server** (multi-core, columnar, vectorized) | **10 ms – 1 s** on billions of rows | Compression **5–10×**; insert in batches of **10k–100k rows**, ideally ≤ 1 insert/s per partition (too many small parts = merge storm); 1 node handles TBs |
@@ -1042,6 +1218,8 @@ The Dropbox/Google Drive family of questions lives on these numbers.
 
 ## 20. Time series and observability
 
+> **Tier 3 — know that the limit exists.** **Cardinality is the killer.** 1M active series ≈ 4–8 GB of RAM; bound every label.
+
 | System | Ingest | Cardinality limit | Storage per sample |
 |---|---|---|---|
 | **Prometheus (single server)** | **100k–1M samples/s** | **1M–10M active series** (practical: keep under 2–5M) | **1.3–2 bytes** compressed (Gorilla/XOR + delta) |
@@ -1065,7 +1243,17 @@ disk   ≈ active_series × samples_per_s × bytes_per_sample × retention
 
 ---
 
+# Part 5 — Specialized workloads
+
+*Sections 21–25 · ~14 min*
+
+Five domains that show up when the question is not a generic CRUD app: vector search and RAG, model and LLM serving, graph traversal, geospatial lookup, and real-time media. You will not get all five in one interview — but you will get one, and generic answers do not survive there. Each has a handful of numbers that immediately mark you as someone who has built it.
+
+---
+
 ## 21. Vector databases and ANN search
+
+> **Tier 2 — know the shape.** 768 dims fp32 = **3 KB per vector**; 1M vectors ≈ 4–5 GB in RAM and **1–10 ms** per query.
 
 | Metric | Value |
 |---|---|
@@ -1100,6 +1288,8 @@ disk   ≈ active_series × samples_per_s × bytes_per_sample × retention
 ---
 
 ## 22. ML and LLM serving
+
+> **Tier 2 — know the shape.** TTFT **200 ms–2 s**, generation **20–100 tokens/s per stream**, KV cache **0.1–0.5 MB per token**.
 
 Modern interviews increasingly include a model in the request path. These numbers keep that realistic.
 
@@ -1141,6 +1331,8 @@ Modern interviews increasingly include a model in the request path. These number
 
 ## 23. Graph databases
 
+> **Tier 3 — know that the limit exists.** Two hops is milliseconds; **four-plus hops is a precompute problem**, not a query problem.
+
 | Metric | Value |
 |---|---|
 | Neo4j traversal rate | **1M+ relationship hops/s per core** (index-free adjacency) |
@@ -1156,6 +1348,8 @@ Modern interviews increasingly include a model in the request path. These number
 ---
 
 ## 24. Geospatial indexing
+
+> **Tier 3 — know that the limit exists.** **H3 resolution 8 ≈ 0.74 km²**, so a 5 km radius is ~100 cells — a pipelined cache lookup, not a database scan.
 
 Ride-hailing, delivery, "find nearby", geofencing — all of these need one of three encodings.
 
@@ -1203,6 +1397,8 @@ Geohash is a string prefix, so **prefix match = bounding box** — it works dire
 ---
 
 ## 25. Real-time media, live streaming and notifications
+
+> **Tier 3 — know that the limit exists.** **SFU, not MCU** (0.1–0.5 vs 1–2 vCPU per participant), and 150 ms mouth-to-ear is the whole budget.
 
 ### WebRTC and video conferencing
 
@@ -1254,7 +1450,19 @@ Geohash is a string prefix, so **prefix match = bounding box** — it works dire
 
 ---
 
+# Part 6 — The infrastructure underneath
+
+*Sections 26–32 · ~16 min*
+
+The layer most candidates wave at and strong candidates quantify: consensus systems, the physical storage your database sits on, serverless and Kubernetes limits, the serialization format on the wire, the probabilistic structures that turn impossible memory into kilobytes, and the client-side budget that frames your entire latency story.
+
+These sections are mostly Tier 2 and 3. Skim them now; come back when a design touches one.
+
+---
+
 ## 26. Coordination: ZooKeeper, etcd, Consul, Raft
+
+> **Tier 2 — know the shape.** These are **metadata stores — kilobytes, not gigabytes**. A consensus write is one round trip to a majority.
 
 | System | Read throughput | Write throughput | Limits |
 |---|---|---|---|
@@ -1273,6 +1481,8 @@ Geohash is a string prefix, so **prefix match = bounding box** — it works dire
 ---
 
 ## 27. Storage hardware
+
+> **Tier 2 — know the shape.** Local NVMe **50 µs** vs network-attached storage **1–2 ms** — a 20–40× gap that decides your database p99.
 
 | Device | Random IOPS (4 KB) | Sequential throughput | Latency | Capacity |
 |---|---|---|---|---|
@@ -1301,6 +1511,8 @@ Geohash is a string prefix, so **prefix match = bounding box** — it works dire
 
 ## 28. Serverless and edge
 
+> **Tier 2 — know the shape.** **Concurrency = rps × duration**, and the default ceiling is 1,000. Cold starts: 100 ms for Node/Python, seconds for the JVM.
+
 | Metric | AWS Lambda | Notes |
 |---|---|---|
 | Cold start (Node.js / Python) | **100–400 ms** | Add 0.5–2 s inside a VPC in the old ENI model (now ~ms) |
@@ -1326,6 +1538,8 @@ Geohash is a string prefix, so **prefix match = bounding box** — it works dire
 
 ## 29. Kubernetes and orchestration limits
 
+> **Tier 3 — know that the limit exists.** **110 pods per node**, and autoscaling takes **1–5 minutes** end to end — which is why you keep 30–50% headroom.
+
 | Metric | Value |
 |---|---|
 | Pods per node (default) | **110** (configurable to 250+; kubelet-tested) |
@@ -1347,6 +1561,8 @@ Geohash is a string prefix, so **prefix match = bounding box** — it works dire
 ---
 
 ## 30. Serialization, compression and protocol overhead
+
+> **Tier 3 — know that the limit exists.** Protobuf is **2–5× faster and 3–10× smaller** than JSON; zstd gives 3–5× compression at 500 MB/s.
 
 | Format | Encode/decode speed | Size vs JSON | Notes |
 |---|---|---|---|
@@ -1400,6 +1616,8 @@ The 8-order-of-magnitude gap between xxHash and bcrypt is the entire point: **fa
 
 ## 31. Probabilistic data structures
 
+> **Tier 2 — know the shape.** Bloom filter: **10 bits per element at 1% false positives**. HyperLogLog: **12 KB** counts billions.
+
 These earn a lot of credit because they turn "impossible memory" into "kilobytes."
 
 | Structure | Memory | Error | Use case |
@@ -1417,6 +1635,8 @@ These earn a lot of credit because they turn "impossible memory" into "kilobytes
 ---
 
 ## 32. Client-side, mobile and frontend budgets
+
+> **Tier 3 — know that the limit exists.** **Active clients ÷ polling interval = your rps.** 1M clients polling every 30 s is 33,000 rps of "anything new?".
 
 Backend-heavy candidates forget that the user's latency budget starts in the browser.
 
@@ -1448,7 +1668,17 @@ The same 1M clients on WebSockets cost **~5–20 connection nodes** and near-zer
 
 ---
 
+# Part 7 — Running it in production
+
+*Sections 33–35 · ~10 min*
+
+Availability arithmetic, disaster recovery tiers, and money. This is the part that separates "I can design it" from "I have operated it" — and it is where senior-level interviews spend their last ten minutes. Knowing that five serial 99.9% services give you 99.5%, or that egress costs $0.09/GB, changes designs in ways that no amount of architecture vocabulary does.
+
+---
+
 ## 33. Availability, reliability and error budgets
+
+> **Tier 1 — memorize this.** **Five serial 99.9% services give you 99.5%** — 43 hours a year. Four nines is 53 minutes.
 
 | Availability | Downtime/year | Downtime/month | Downtime/week |
 |---|---|---|---|
@@ -1496,6 +1726,8 @@ The same 1M clients on WebSockets cost **~5–20 connection nodes** and near-zer
 
 ## 34. Multi-region, disaster recovery, RPO and RTO
 
+> **Tier 2 — know the shape.** Pick an RPO/RTO tier and price it. **DNS failover is 1–5 minutes**, not instant.
+
 | Strategy | RPO (data loss) | RTO (downtime) | Relative cost |
 |---|---|---|---|
 | **Backup and restore** | **hours–24 h** | **hours** | 1.0× (cheapest) |
@@ -1525,6 +1757,8 @@ The same 1M clients on WebSockets cost **~5–20 connection nodes** and near-zer
 
 ## 35. Cost figures of merit
 
+> **Tier 2 — know the shape.** **Egress $0.05–0.09/GB and cross-AZ $0.01–0.02/GB** are the line items that surprise everyone.
+
 Money is a figure of merit too, and mentioning it distinguishes senior candidates.
 
 | Resource | Typical cloud price (2025-ish, on-demand US) |
@@ -1549,7 +1783,19 @@ Money is a figure of merit too, and mentioning it distinguishes senior candidate
 
 ---
 
+# Part 8 — Putting it together
+
+*Sections 36–37 · ~14 min*
+
+Nine complete capacity estimates, worked end to end from assumptions to machine counts to the thing that breaks first — URL shortener, social feed, chat, video streaming, ride-hailing, checkout, file sync, video conferencing and autocomplete. Then a map of where each kind of number belongs in the 45 minutes you actually get.
+
+Read one worked example a day and try to reproduce it on paper before looking. That single habit is worth more than re-reading the tables.
+
+---
+
 ## 36. Nine worked capacity estimates
+
+> **Tier 1 — memorize this.** The pattern, every time: **DAU → QPS → bytes → machines → what breaks first.**
 
 ### 36.1 URL shortener (Bitly-scale)
 
@@ -1641,6 +1887,8 @@ Corpus: 100M distinct queries, average 20 bytes
 
 ## 37. Interview mechanics: where the numbers go
 
+> **Tier 1 — memorize this.** Estimation belongs in minutes 5–10; thresholds belong in the deep dive. Numbers without a decision score nothing.
+
 A 45–60 minute system design interview has a predictable shape, and the numbers belong in specific places.
 
 | Phase | Time | What you produce | Numbers to state |
@@ -1666,37 +1914,114 @@ A 45–60 minute system design interview has a predictable shape, and the number
 
 ---
 
-## 38. The one-page cheat sheet
+# Part 9 — Practice
 
-**Latency**
-`L1 1 ns · RAM 100 ns · NVMe 50 µs · same-DC RTT 0.5 ms · cross-AZ 1 ms · US→EU 90 ms · HDD seek 8 ms · TLS 1.3 = 1 RTT`
+*Section 38 and the flashcard list · ~15 min, done properly*
 
-**Throughput per box**
-`App server 1k–5k rps · NGINX 50k–500k rps · Redis 100k ops/s (1M pipelined) · Postgres 20k reads/s, 10k writes/s · MySQL 50k reads/s · Cassandra 20k writes/s · Scylla 200k+ · Elasticsearch 20k docs/s indexing · Kafka broker 100+ MB/s · S3 3,500 writes/s per prefix · SFU 1k streams · bcrypt 10 hashes/s per core`
+Twenty drills that take a few seconds each, and a flashcard list of the Tier 1 numbers. Do these **cold** — closed page, out loud, writing the arithmetic down. Recognizing a number when you read it and producing it under interview pressure are different skills, and only the second one gets scored.
 
-**Capacity thresholds**
-`Postgres partition at 100M rows, shard at 1–2 TB · MySQL shard at 500 GB–1 TB · Redis shard at 25–50 GB · Cassandra partition < 100 MB, node 1–2 TB · Dynamo partition 3,000 RCU / 1,000 WCU / 10 GB, item 400 KB · ES shard 10–50 GB, heap ≤ 31 GB · Kafka ≤ 4,000 partitions/broker, message ≤ 1 MB · Mongo doc ≤ 16 MB · etcd ≤ 8 GB · Prometheus ≤ 10M series · Temporal history ≤ 50 MB · Lambda 15 min / 10 GB`
+---
 
-**Namespaces**
-`Kafka 200k partitions (ZK) / millions (KRaft) · Pulsar millions of topics · RabbitMQ 10k–100k queues/node · Kinesis 500 shards/stream · Pub/Sub 10k topics/project · SNS 100k topics`
+## 38. Drills: twenty questions, cold
 
-**IDs, clocks, geo**
-`Snowflake 64-bit = 41 ts + 10 node + 12 seq → 4M IDs/s/node · UUIDv7 for index locality · NTP ±1–50 ms · geohash-6 = 1.2 km · H3 res 8 = 0.74 km² · S2 L30 = 1 cm²`
+Cover the answers. Say each one out loud, with the arithmetic. If it takes you more than ~20 seconds, that number belongs on a flashcard.
 
-**Consistency**
-`R + W > N · quorum write ≈ 2–5 ms in-region, 60–100 ms cross-region · 2PC = 2 RTT and blocking · async replica lag 1 ms–1 s · read-your-writes = pin to primary 1–5 s`
+1. 5M DAU, 30 requests each, peak is 3× average. What QPS do you provision for?
+2. Your app server is in the same AZ as Redis. What p50 does a `GET` add to your request?
+3. At what size do you partition a PostgreSQL table? At what size do you shard the database?
+4. You need to ingest 500 MB/s into Kafka. How many partitions, minimum?
+5. A service handles 2,000 rps with 40 ms average latency. How many threads/connections does it need in flight?
+6. What is the maximum write rate DynamoDB will give a single partition key?
+7. You are indexing a 2 TB Elasticsearch index. How many primary shards?
+8. Three services at 99.95% in series. What is the end-to-end availability, in hours of downtime per year?
+9. 1M concurrent WebSocket clients. How many connection nodes?
+10. 50M embeddings at 768 dimensions, fp32, HNSW. How much RAM?
+11. Kafka at 200 MB/s with 7-day retention and RF 3. How much disk?
+12. You egress 500 TB/month from the origin at $0.085/GB. What is the bill?
+13. What does a synchronous cross-region write cost, in milliseconds?
+14. A 16-core box hashes passwords with bcrypt cost 12. How many logins per second?
+15. You need to cut database read load by 10×. What cache hit ratio do you need?
+16. Your servers run at 85% CPU. Roughly how much worse is queueing delay than at 50%?
+17. A job queue takes 500 jobs/s, each job runs 4 seconds. How many concurrent workers?
+18. You need 20,000 PUT/s into S3. How do you get it?
+19. A single Postgres primary is taking 25,000 writes/s. What breaks first?
+20. You send 10M push notifications in one minute. What does your API see?
 
-**Conversions**
-`1M/day ≈ 12 rps · 1B/day ≈ 11.6k rps · peak = 3× average · 86,400 s/day · 31.5M s/year · 1 ms RTT per 100 km · 1 token ≈ 4 chars · clients ÷ poll interval = rps`
+---
 
-**Laws**
-`Concurrency = rps × latency (Little) · Queue delay explodes past 70–80% utilization · 5 serial 99.9% services = 99.5% · 99.99% = 52 min/year`
+### Answers
 
-**Resilience**
-`Retry budget ≤ 10% with full jitter · circuit breaker at 50% errors / 10 s · RPO/RTO: backup hours/hours, warm standby seconds/minutes, active-active ~0/seconds · autoscaling takes 1–5 min`
+1. **~1,750 rps average, ~5,200 rps peak.** 5M × 30 = 150M/day; ÷ 86,400 ≈ 1,736; × 3 ≈ 5,200. Provision for the peak.
+2. **~0.2–0.5 ms.** ~0.1 ms server-side plus same-AZ network. If you said "microseconds" you forgot the network; if you said "5 ms" you are thinking of a database.
+3. **Partition at ~100 GB or 100M rows. Shard at 1–2 TB, or above ~10–20k writes/s, or when the working set stops fitting in RAM.**
+4. **~50 partitions minimum** (500 ÷ 10 MB/s per partition), realistically **100–150** for consumer parallelism and headroom. Stay under ~4,000 per broker.
+5. **~80 in flight** (Little's Law: 2,000 × 0.04), so size the pool at ~100 with headroom.
+6. **1,000 WCU — 1,000 writes/s of 1 KB.** Past that you must shard the key with a suffix.
+7. **~65–70 primaries** (2,000 GB ÷ 30 GB per shard), doubled to ~135 shards with one replica.
+8. **99.85%**, which is **~13 hours/year**. Serial dependencies multiply: 0.9995³.
+9. **5–10 nodes** at 100k–200k connections each — plus headroom, so call it 12–15.
+10. **~175–200 GB.** 768 × 4 B = 3 KB per vector plus ~0.5–1 KB of HNSW graph; × 50M. Shard it, or quantize to int8 and cut it 4×.
+11. **~363 TB.** 200 MB/s × 604,800 s × 3 replicas. (And then divide by 0.7 for disk headroom: ~520 TB provisioned.)
+12. **~$42,500/month.** 500,000 GB × $0.085. This is why the answer is a CDN.
+13. **+60–100 ms per commit** — a full round trip to the other region. It is the reason "just make it globally consistent" is never free.
+14. **~40–80 logins/s.** bcrypt cost 12 is 200–400 ms per hash, so 2.5–5 per core, × 16 cores. Login is your most expensive endpoint.
+15. **90%.** Origin load is `1 − hit_ratio`. For 20× you need 95%.
+16. **About 3× worse.** M/M/1 queueing: 1/(1−0.85) ≈ 6.7× service time vs 1/(1−0.5) = 2×. This is why you provision to 60–70%.
+17. **2,000 concurrent workers** (500 × 4). At 4 jobs per core that is ~500 cores — the number that should make you redesign the job, not the fleet.
+18. **Spread across at least 6 prefixes** (20,000 ÷ 3,500 per prefix), realistically 10+. Prefixes are unlimited; per-prefix rate is not.
+19. **WAL/fsync throughput and replication lag.** You are ~2× past a single node's comfort zone, so replicas fall behind and p99 commit latency climbs. Shard, or batch writes.
+20. **A ~170k rps spike** within about a minute, as recipients open the app. Stagger delivery over 5–30 minutes, and size the read path for the return traffic — not just the send rate.
 
-**Design ladder (say it in this order)**
-`Index → cache → read replica → CDN → async/queue → partition → archive → shard → multi-region`
+---
+
+## The Tier 1 flashcard list
+
+Forty numbers. If you can produce all of them cold, you are calibrated for any system design interview. Cover the right column.
+
+| Ask yourself | Answer |
+|---|---|
+| Main memory reference | **100 ns** |
+| NVMe SSD random read | **50–100 µs** |
+| Round trip inside a datacenter | **0.5 ms** |
+| Round trip cross-AZ | **1 ms** |
+| Round trip US → Europe | **~90 ms** |
+| HDD seek | **~8 ms** |
+| RTT per 100 km of fiber | **1 ms** |
+| 1M requests/day in rps | **~12 rps** |
+| 1B requests/day in rps | **~11,600 rps** |
+| Seconds in a day / year | **86,400 / 31.5M** |
+| Peak-to-average ratio | **3×** (range 2–10×) |
+| Safe CPU utilization target | **60–70%** |
+| Concurrency formula | **rps × latency** (Little's Law) |
+| App server, realistic business logic | **1,000–5,000 rps** |
+| NGINX / reverse proxy per box | **50k–500k rps** |
+| RSA-2048 TLS handshakes per core | **1,000–2,000/s** |
+| Concurrent WebSockets per node | **100k–200k** |
+| Redis latency (client-observed, same AZ) | **0.2–1 ms** |
+| Redis ops/sec per node | **~100k** (1M pipelined) |
+| Redis shard size ceiling | **25–50 GB** |
+| Cache hit ratio for 20× origin offload | **95%** |
+| PostgreSQL reads / writes per node | **20k/s / 10k/s** |
+| Partition a relational table at | **100 GB or 100M rows** |
+| Shard a relational database at | **1–2 TB or 10–20k writes/s** |
+| Postgres connections before pooling | **200–500** |
+| Quorum rule | **R + W > N** |
+| Cross-region synchronous write | **+60–100 ms** |
+| DynamoDB partition ceiling | **3,000 RCU / 1,000 WCU / 10 GB** |
+| DynamoDB max item size | **400 KB** |
+| Cassandra partition size limit | **< 100 MB** (target < 10 MB) |
+| Elasticsearch shard size | **10–50 GB**, heap ≤ **31 GB** |
+| Kafka partitions per broker | **≤ 4,000** (plan ~2,000) |
+| Kafka throughput per partition | **~10 MB/s** |
+| Kafka max message size | **1 MB** |
+| S3 request rate per prefix | **3,500 PUT / 5,500 GET per second** |
+| S3 first-byte latency | **100–200 ms** |
+| Object storage durability | **11 nines** |
+| 99.9% / 99.99% downtime per year | **8.8 h / 53 min** |
+| Five serial 99.9% services | **99.5%** |
+| Internet egress cost | **$0.05–0.09/GB** |
+
+**How to drill these:** read the left column, say the answer out loud, then check. Three passes of ten minutes each — spread across three days, not one — beats an hour of re-reading.
 
 ---
 
@@ -1707,6 +2032,8 @@ Nobody expects you to recite this table. What a strong interviewer wants to hear
 > *"20M DAU, 10 writes each, so 200M writes/day ≈ 2,300/s, peak ~7,000/s. Each record is ~500 bytes, so 100 GB/day, 36 TB/year. 7,000 writes/s is above one Postgres primary's comfort zone of 5–10k, and 36 TB is far past the 1–2 TB I'd want on one node, so I'll shard by user_id into, say, 16 shards — that's ~440 writes/s and ~2 TB each, which leaves room to double before resharding. Reads are 20:1, so 140k reads/s — that's a cache tier: Redis at a 95% hit rate serves 133k/s across ~4–6 shards and the databases see only 7k/s."*
 
 That paragraph contains maybe a dozen of the numbers above. It takes ninety seconds. It demonstrates estimation, capacity planning, technology knowledge and an awareness of headroom — which is, more or less, the entire rubric.
+
+If that paragraph does not come naturally yet, the drills in Part 9 are the fastest way to get there — twenty of them, a few seconds each.
 
 Three habits to practice:
 
