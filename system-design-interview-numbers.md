@@ -6,7 +6,7 @@ Every system design interview eventually reaches the same moment. You have drawn
 
 At that point, hand-waving stops working. You need numbers — not memorized trivia, but a working set of **figures of merit**: the one or two quantities that characterize what a technology can actually do. How many requests can one application server absorb? How fast is a Redis read, really? At how many rows does PostgreSQL start hurting? How many partitions can a Kafka broker hold? How many shards should an Elasticsearch index have?
 
-This article is the reference I wish I had. It collects the figures of merit for essentially every technology class that shows up in a system design interview — compute, load balancing, caching, relational databases, NoSQL stores, search, streaming, object storage, analytics, coordination, observability, vector search, serverless, orchestration — together with the back-of-the-envelope math that turns them into an architecture.
+This article is the reference I wish I had. It collects the figures of merit for essentially every technology class that shows up in a system design interview — compute, load balancing, API rate limiting, auth and ID generation, caching, relational databases, consistency and quorums, NoSQL stores, search, streaming and messaging, stream processing, workflow engines, object storage and CDN, analytics and lakehouses, observability, vector search, ML and LLM serving, graph and geospatial indexes, real-time media, coordination, storage hardware, serverless, Kubernetes, serialization, probabilistic structures, client-side budgets, availability, multi-region DR and cost — together with the back-of-the-envelope math that turns them into an architecture.
 
 A word on precision before we start. **These are order-of-magnitude numbers.** Your hardware, your payload sizes, your access patterns and your tuning will move any of them by 2–5×. That is fine. Interviews reward *calibration*, not precision: knowing that a Redis GET is ~0.2 ms and not 20 ms, that a Postgres node does ~10k writes/sec and not 10M, that a Kafka broker holds ~4,000 partitions and not 4 million. Being right to within an order of magnitude, and being explicit that you are estimating, is exactly the behavior a strong interviewer is looking for.
 
@@ -20,28 +20,38 @@ A word on precision before we start. **These are order-of-magnitude numbers.** Y
 4. [Network, geography and protocol latency](#4-network-geography-and-protocol-latency)
 5. [Application servers: requests per second per box](#5-application-servers-requests-per-second-per-box)
 6. [Load balancers, proxies and API gateways](#6-load-balancers-proxies-and-api-gateways)
-7. [Caching: Redis, Memcached and friends](#7-caching-redis-memcached-and-friends)
-8. [Relational databases: PostgreSQL and MySQL](#8-relational-databases-postgresql-and-mysql)
-9. [When to shard: the thresholds table](#9-when-to-shard-the-thresholds-table)
-10. [NoSQL: DynamoDB, Cassandra, ScyllaDB, MongoDB, HBase](#10-nosql-dynamodb-cassandra-scylladb-mongodb-hbase)
-11. [Search engines: Elasticsearch and OpenSearch](#11-search-engines-elasticsearch-and-opensearch)
-12. [Streaming and messaging: Kafka, Pulsar, RabbitMQ, Kinesis, SQS, NATS](#12-streaming-and-messaging)
-13. [Stream processing: Flink, Spark, Kafka Streams](#13-stream-processing-flink-spark-kafka-streams)
-14. [Object storage and CDN](#14-object-storage-and-cdn)
-15. [OLAP and warehouses: ClickHouse, Druid, Pinot, BigQuery, Snowflake](#15-olap-and-warehouses)
-16. [Time series and observability: Prometheus, VictoriaMetrics, InfluxDB](#16-time-series-and-observability)
-17. [Vector databases and ANN search](#17-vector-databases-and-ann-search)
-18. [Graph databases](#18-graph-databases)
-19. [Coordination: ZooKeeper, etcd, Consul, Raft](#19-coordination-zookeeper-etcd-consul-raft)
-20. [Storage hardware: HDD, SSD, NVMe, EBS](#20-storage-hardware)
-21. [Serverless and edge](#21-serverless-and-edge)
-22. [Kubernetes and orchestration limits](#22-kubernetes-and-orchestration-limits)
-23. [Serialization, compression and protocol overhead](#23-serialization-compression-and-protocol-overhead)
-24. [Probabilistic data structures](#24-probabilistic-data-structures)
-25. [Availability, reliability and error budgets](#25-availability-reliability-and-error-budgets)
-26. [Cost figures of merit](#26-cost-figures-of-merit)
-27. [Six worked capacity estimates](#27-six-worked-capacity-estimates)
-28. [The one-page cheat sheet](#28-the-one-page-cheat-sheet)
+7. [API design: rate limits, quotas, pagination and timeouts](#7-api-design-rate-limits-quotas-pagination-and-timeouts)
+8. [Identity, auth, ID generation and clocks](#8-identity-auth-id-generation-and-clocks)
+9. [Caching: Redis, Memcached and friends](#9-caching-redis-memcached-and-friends)
+10. [Relational databases: PostgreSQL and MySQL](#10-relational-databases-postgresql-and-mysql)
+11. [Consistency, quorums and distributed transactions](#11-consistency-quorums-and-distributed-transactions)
+12. [When to shard: the thresholds table](#12-when-to-shard-the-thresholds-table)
+13. [NoSQL: DynamoDB, Cassandra, ScyllaDB, MongoDB, HBase](#13-nosql-dynamodb-cassandra-scylladb-mongodb-hbase)
+14. [Search engines: Elasticsearch and OpenSearch](#14-search-engines-elasticsearch-and-opensearch)
+15. [Streaming and messaging](#15-streaming-and-messaging)
+16. [Stream processing: Flink, Spark, Kafka Streams](#16-stream-processing-flink-spark-kafka-streams)
+17. [Workflow orchestration and background jobs](#17-workflow-orchestration-and-background-jobs)
+18. [Object storage and CDN](#18-object-storage-and-cdn)
+19. [OLAP and warehouses](#19-olap-and-warehouses)
+20. [Time series and observability](#20-time-series-and-observability)
+21. [Vector databases and ANN search](#21-vector-databases-and-ann-search)
+22. [ML and LLM serving](#22-ml-and-llm-serving)
+23. [Graph databases](#23-graph-databases)
+24. [Geospatial indexing](#24-geospatial-indexing)
+25. [Real-time media, live streaming and notifications](#25-real-time-media-live-streaming-and-notifications)
+26. [Coordination: ZooKeeper, etcd, Consul, Raft](#26-coordination-zookeeper-etcd-consul-raft)
+27. [Storage hardware](#27-storage-hardware)
+28. [Serverless and edge](#28-serverless-and-edge)
+29. [Kubernetes and orchestration limits](#29-kubernetes-and-orchestration-limits)
+30. [Serialization, compression and protocol overhead](#30-serialization-compression-and-protocol-overhead)
+31. [Probabilistic data structures](#31-probabilistic-data-structures)
+32. [Client-side, mobile and frontend budgets](#32-client-side-mobile-and-frontend-budgets)
+33. [Availability, reliability and error budgets](#33-availability-reliability-and-error-budgets)
+34. [Multi-region, disaster recovery, RPO and RTO](#34-multi-region-disaster-recovery-rpo-and-rto)
+35. [Cost figures of merit](#35-cost-figures-of-merit)
+36. [Nine worked capacity estimates](#36-nine-worked-capacity-estimates)
+37. [Interview mechanics: where the numbers go](#37-interview-mechanics-where-the-numbers-go)
+38. [The one-page cheat sheet](#38-the-one-page-cheat-sheet)
 
 ---
 
@@ -187,6 +197,7 @@ bandwidth = qps × avg_response_bytes × 8   (bits/sec)
 *Example:* 10,000 rps × 50 KB responses = 500 MB/s = **4 Gbps** — already more than a single 1 Gbps NIC and a strong argument for a CDN.
 
 ---
+
 ## 4. Network, geography and protocol latency
 
 Physics sets the floor. Light travels at ~300,000 km/s in vacuum and roughly **200,000 km/s in fiber**, and real routes are 1.5–2× longer than the great-circle distance.
@@ -226,7 +237,7 @@ Physics sets the floor. Light travels at ~300,000 km/s in vacuum and roughly **2
 - A cold mobile HTTPS request costs ~0.5 s before your server does any work. Keep-alive, HTTP/2 multiplexing and TLS session resumption are the fixes.
 - **Never make a synchronous cross-region call in a user-facing path.** One US↔EU round trip (~90 ms) blows most p99 budgets on its own.
 - N+1 query patterns are lethal at scale: 100 sequential queries at 0.5 ms intra-DC RTT = 50 ms of pure network time.
-- Cross-AZ calls are ~1 ms and **cost money** (see §26); cross-AZ *chattiness* is a common real-world cost bug.
+- Cross-AZ calls are ~1 ms and **cost money** (see the cost section); cross-AZ *chattiness* is a common real-world cost bug.
 
 ### Throughput per host
 
@@ -340,7 +351,114 @@ A fleet taking 50,000 new HTTPS connections per second with RSA certs needs **~3
 
 ---
 
-## 7. Caching: Redis, Memcached and friends
+## 7. API design: rate limits, quotas, pagination and timeouts
+
+Every design that exposes an API gets asked "how do you stop one client from taking the system down?" These are the numbers behind the answer.
+
+### Rate limiter algorithms
+
+| Algorithm | Memory per key | Accuracy | Burst behavior |
+|---|---|---|---|
+| Fixed window counter | **~16 B** (one int + expiry) | Allows **2× the limit** at a window boundary | Spiky |
+| Sliding window log | **16 B × requests in window** (100 req/min ≈ 1.6 KB) | Exact | Smooth, expensive |
+| **Sliding window counter** | ~32 B | **< 1% error** | Smooth — the usual production choice |
+| **Token bucket** | ~32 B (tokens + last refill ts) | Exact | **Burst = bucket size**, sustained = refill rate |
+| Leaky bucket (queue) | Queue depth × item | Exact | Smooths output completely, adds latency |
+
+**Distributed limiter cost:** a Redis-backed limiter is **1 round trip (0.2–1 ms) and ~1–2 Redis ops per request**. At 100k rps that is 100k–200k Redis ops/s — one node, but now every request depends on Redis. Above ~1M rps use **local token buckets per instance with a global budget divided by instance count**, resynced every 1–10 s (accept ~5–10% overshoot).
+
+### Typical published API limits (useful as calibration)
+
+| Service | Limit |
+|---|---|
+| GitHub REST API | **5,000 requests/hour** authenticated (60/h anonymous) |
+| Stripe | **100 requests/second** per account (live mode) |
+| Google Maps Platform | 50 QPS per API by default |
+| AWS API Gateway | **10,000 rps** per region, 5,000 burst |
+| Twilio (long code SMS) | 1 message/second per number |
+| Typical SaaS free tier | **10–100 requests/minute per user** |
+| Typical internal service quota | 1,000–10,000 rps per caller |
+| Login endpoint (anti-credential-stuffing) | **5–10 attempts/minute per account**, 100/hour per IP |
+
+### Request-shaping numbers
+
+| Knob | Typical value |
+|---|---|
+| Page size (list endpoints) | **20–100** items default, 1,000 max |
+| Offset pagination cost | `OFFSET 100000` scans 100k rows — **use cursor/keyset pagination** past a few thousand |
+| Max request body | **1–10 MB** (413 beyond); uploads go to presigned S3 URLs |
+| Connect timeout | **1–3 s** |
+| Read timeout | **p99.9 × 1.5**, typically 1–10 s |
+| Total client timeout budget | Must be **less** than the caller's timeout, or you retry a request that is still running |
+| Retry policy | 2–3 attempts, **exponential backoff with full jitter**, base 100 ms, cap 10–30 s |
+| Retry budget | **≤ 10% of requests** — otherwise a brownout becomes an outage (3 retries = 4× load) |
+| Circuit breaker | Open at **50% errors over a 10 s / ≥20 request window**, half-open probe after **5–30 s** |
+| Bulkhead (max concurrent per dependency) | `rps × p99_latency` from Little's Law, + 20–50% |
+| Idempotency key record | ~200–500 B, **24 h TTL**; SQS FIFO dedup window is **5 minutes** |
+| Load shedding threshold | Shed at **> 80% CPU** or when queue wait > 1× timeout (fail fast beats timing out) |
+
+---
+
+## 8. Identity, auth, ID generation and clocks
+
+### Password hashing — the most-forgotten capacity number
+
+| Algorithm | Cost per hash | Hashes per core per second |
+|---|---|---|
+| **bcrypt, cost 10** | **50–100 ms** | **10–20** |
+| bcrypt, cost 12 (OWASP default) | **200–400 ms** | **2.5–5** |
+| Argon2id (19 MB, t=2, p=1) | 50–100 ms + **19 MB RAM** | 10–20 (memory-bound) |
+| PBKDF2-HMAC-SHA256, 600k iterations | ~100 ms | ~10 |
+| scrypt (N=16384, r=8) | ~100 ms + 16 MB | ~10 |
+| **SHA-256 alone (never use for passwords)** | ~1 µs | 1,000,000+ |
+
+**This is a real capacity constraint:** 1,000 logins/second at bcrypt cost 12 needs **200–400 CPU cores** of pure hashing. Login is the most expensive endpoint in most products. Interview-grade answers isolate auth into its own autoscaled service, or move to a token-based flow so hashing happens once per session rather than once per request.
+
+### Tokens and sessions
+
+| Item | Value |
+|---|---|
+| JWT size (HS256, small claims) | **300–800 B**; with roles/permissions 1–4 KB |
+| JWT overhead at scale | 1 KB × 10k rps = **10 MB/s** of pure header traffic |
+| HMAC-SHA256 verify | **1–5 µs** (essentially free) |
+| RS256 sign / verify | **1–2 ms** / **50–100 µs** — verify is cheap, signing is not |
+| Session cookie + Redis lookup | 50–200 B cookie, **0.2–1 ms** lookup |
+| Session store size | 100M sessions × 200 B = **20 GB** |
+| Access token TTL | **5–60 minutes** |
+| Refresh token TTL | **7–90 days** |
+| Revocation lag with stateless JWTs | **= token TTL** (the core JWT tradeoff — quote this) |
+| TLS certificate lifetime | 90 days (Let's Encrypt), 398 days max public CA |
+
+### ID generation — know these cold
+
+| Scheme | Bits | Rate | Properties |
+|---|---|---|---|
+| DB auto-increment | 64 | 1 per insert, **needs coordination** | Sequential (index-friendly), leaks volume, single point |
+| **UUIDv4** | 128 (122 random) | Unlimited, no coordination | **Random → clustered-index fragmentation; 2–5× slower inserts in MySQL** |
+| **UUIDv7 / ULID** | 128 (48-bit ms timestamp + random) | Unlimited | **Time-sortable and index-friendly** — the modern default |
+| **Snowflake** | **64 = 1 sign + 41-bit ms timestamp (69 years) + 10-bit machine (1,024 nodes) + 12-bit sequence (4,096/ms)** | **4.096M IDs/sec/node**, ~4B/sec cluster-wide | Sortable, compact, needs clock discipline |
+| Ticket server / range allocation | 64 | 1 DB round trip per **1,000–10,000** IDs | Batch amortizes coordination |
+| Base62 short code | 6 chars = **56.8B**, 7 = **3.5T**, 8 = **218T** | — | For URL shorteners |
+| Content hash (SHA-256 / blake3) | 256 | Hash speed-bound | Natural dedup key |
+
+**Collision math worth quoting:** UUIDv4 needs ~**2.7 × 10¹⁸** IDs for a 50% collision chance — you will never hit it. A 12-bit Snowflake sequence *will* be exhausted if one node exceeds 4,096 IDs in a single millisecond, so the generator spins to the next ms.
+
+### Clocks — why "just use the timestamp" is a trap
+
+| Property | Value |
+|---|---|
+| NTP sync accuracy over WAN | **1–50 ms** |
+| NTP sync accuracy on LAN | 0.1–1 ms |
+| PTP (hardware timestamping) | **sub-microsecond** |
+| Google TrueTime uncertainty ε | **~1–7 ms** — Spanner *waits out* ε on commit |
+| Untuned crystal drift | 50–200 ppm ≈ **5–17 seconds per day** |
+| AWS Time Sync Service | ~1 ms, microsecond-accurate on supported instances |
+
+Consequences: **last-write-wins by wall clock can silently lose a write** when clocks differ by more than the inter-write gap; Snowflake IDs need drift protection (refuse to emit IDs if the clock goes backwards); and any "ordering" guarantee across machines needs **logical clocks** — Lamport timestamps, vector clocks (size grows with the number of writers), or hybrid logical clocks (HLC: physical ms + logical counter, bounded by NTP error).
+
+---
+
+## 9. Caching: Redis, Memcached and friends
 
 ### Redis / Valkey figures of merit
 
@@ -396,8 +514,27 @@ With a 95% hit ratio, 0.5 ms cache and 20 ms DB: `0.95 × 0.5 + 0.05 × 20 = 1.5
 | Database buffer pool / page cache | 1–100 µs | RAM-sized | Free and often forgotten |
 | Materialized view / precomputed table | 1–10 ms | Disk-sized | Trades freshness for latency |
 
+### Caching strategies and what each costs
+
+| Strategy | Read path | Write path | Staleness | When to use |
+|---|---|---|---|---|
+| **Cache-aside (lazy loading)** | Miss → DB → populate | Write DB, **invalidate** cache | Until TTL or invalidation | **The default.** Simple, resilient to cache loss |
+| **Read-through** | Cache library fetches on miss | Same as cache-aside | Same | Cleaner code, ties you to the cache client |
+| **Write-through** | Always fresh | Write DB **and** cache (+0.2–1 ms) | **None** | Read-heavy data that's always re-read |
+| **Write-behind (write-back)** | Fast | Write cache, flush to DB in **1 s – 1 min** batches | Risk of **data loss on cache failure** | Counters, metrics, high-write low-value data |
+| **Refresh-ahead** | Never misses on hot keys | Async refresh at ~75% of TTL | Small | Predictable hot keys, expensive recomputation |
+
+| Guard | Value |
+|---|---|
+| Negative caching (cache the miss) | **30–60 s TTL** — stops a nonexistent key from hammering the DB |
+| TTL jitter | **±10–20%** — prevents synchronized mass expiry |
+| Single-flight / request coalescing | Collapses N concurrent misses into 1 DB query |
+| Probabilistic early expiration | Refresh when `now > expiry − β × log(rand()) × recompute_time` |
+| Stale-while-revalidate | Serve stale up to **60 s** while refreshing in the background |
+
 ---
-## 8. Relational databases: PostgreSQL and MySQL
+
+## 10. Relational databases: PostgreSQL and MySQL
 
 This is where interviews live or die, because "when do I shard?" is the single most common follow-up question in the entire format.
 
@@ -486,7 +623,57 @@ This is where interviews live or die, because "when do I shard?" is the single m
 
 ---
 
-## 9. When to shard: the thresholds table
+## 11. Consistency, quorums and distributed transactions
+
+### Quorum math
+
+With `N` replicas, `W` write acks and `R` read responses, **strong consistency requires `R + W > N`**.
+
+| Config (N=3) | Semantics | Write latency | Read latency | Tolerates |
+|---|---|---|---|---|
+| W=1, R=1 | Eventual, fastest | **1 replica RTT (~1 ms)** | ~1 ms | 2 failures |
+| **W=2, R=2 (quorum)** | **Strong-ish (read-your-writes)** | **2nd-fastest replica (~2–5 ms)** | 2–5 ms | 1 failure |
+| W=3, R=1 | Fast reads, fragile writes | **slowest replica** (tail-dominated) | ~1 ms | 0 write failures |
+| W=1, R=3 | Fast writes, slow reads | ~1 ms | slowest replica | 0 read failures |
+
+**Tail-at-scale:** waiting for the slowest of N replicas means your p99 becomes roughly the p99 of the *slowest* of N — with N=3 and per-replica p99 of 10 ms, "wait for all" lands near 20–30 ms. **Hedged requests** (send a duplicate after p95 elapses) cut p99 by **2–10×** for about **5% extra load** — a great detail to mention.
+
+### Consistency models and what each costs
+
+| Model | Latency cost | Example |
+|---|---|---|
+| Linearizable / strong | **1 RTT to a quorum** + leader hop: 1–5 ms same region, **60–100 ms cross-region** | etcd, Spanner, single-leader RDBMS |
+| Sequential / bounded staleness | Read from replica with a lag bound (e.g. < 1 s) | Aurora replicas, Cosmos DB |
+| **Read-your-writes** | Free if you pin reads to the primary for **1–5 s** after a write (sticky routing) | The standard practical fix |
+| Monotonic reads | Pin a user to one replica | Session consistency |
+| Causal | Track dependencies (vector clocks, ~100 B metadata) | COPS, MongoDB causal sessions |
+| **Eventual** | 0 extra — converges in **1 ms – 1 s** in-region, **< 1 s** cross-region for DynamoDB global tables, minutes worst case | DynamoDB, Cassandra, S3 CRR |
+
+### Distributed transactions
+
+| Approach | Latency | Throughput cost | Failure behavior |
+|---|---|---|---|
+| **Two-phase commit (2PC)** | **2 RTT + 2 durable log writes ≈ 4–10 ms** same region | **2–5× slower** than a local transaction | **Blocking** if the coordinator dies — recovery takes seconds to minutes |
+| Three-phase commit | 3 RTT | Worse | Non-blocking but rarely used in practice |
+| **Saga (choreographed or orchestrated)** | Sum of steps (**100 ms – minutes**) | Near-zero overhead | Needs **compensating transactions**; intermediate states are visible |
+| **Outbox + CDC** | **10 ms – 1 s** to propagate | Negligible | At-least-once → consumers must be idempotent |
+| Deterministic / Calvin-style | 1 consensus round | High throughput | Requires pre-declared read/write sets |
+
+**The interview line:** *"I'd avoid a distributed transaction. I'll keep the invariant inside one shard, use the outbox pattern for the cross-service event, and make consumers idempotent — a saga with compensation if the business flow truly spans services."*
+
+### Conflict resolution
+
+| Mechanism | Metadata cost | Note |
+|---|---|---|
+| Last-write-wins | 8 B timestamp | Silently drops writes under clock skew |
+| Vector clocks | ~16 B **per writer** — grows unboundedly | Requires client-side merge (Dynamo-style siblings) |
+| **CRDTs** | **2–10× payload overhead** | Converge without coordination; ideal for collaborative editing and counters |
+| Operational transform | Server-coordinated | Google Docs heritage |
+| Read repair / anti-entropy | Merkle tree comparison, minutes–hours | How Cassandra self-heals; run repair within `gc_grace_seconds` (10 days) |
+
+---
+
+## 12. When to shard: the thresholds table
 
 A compact answer to "at what point do you split this?" for every storage technology.
 
@@ -515,7 +702,7 @@ A compact answer to "at what point do you split this?" for every storage technol
 
 ---
 
-## 10. NoSQL: DynamoDB, Cassandra, ScyllaDB, MongoDB, HBase
+## 13. NoSQL: DynamoDB, Cassandra, ScyllaDB, MongoDB, HBase
 
 ### DynamoDB — the limits *are* the design
 
@@ -596,7 +783,8 @@ A compact answer to "at what point do you split this?" for every storage technol
 | Massive sorted scans, time series over rows | HBase/Bigtable | Range scans are native |
 
 ---
-## 11. Search engines: Elasticsearch and OpenSearch
+
+## 14. Search engines: Elasticsearch and OpenSearch
 
 | Metric | Value |
 |---|---|
@@ -635,11 +823,11 @@ For 3 TB of logs: 3,000 / 30 = **100 primaries**, ×2 with replicas = 200 shards
 | Typesense / Meilisearch | Sub-**50 ms** search, in-memory, best under ~10–50M docs |
 | Algolia (hosted) | **1–20 ms** search latency, scales by managed replicas |
 | PostgreSQL full-text (`tsvector` + GIN) | Fine up to **1–10M docs**; GIN index build is slow; no relevance tuning depth |
-| OpenSearch k-NN / ES dense_vector | Adds vector search — see §17 |
+| OpenSearch k-NN / ES dense_vector | Adds vector search — see the vector-database section |
 
 ---
 
-## 12. Streaming and messaging
+## 15. Streaming and messaging
 
 ### Apache Kafka — the numbers interviewers probe
 
@@ -694,9 +882,29 @@ For 3 TB of logs: 3,000 / 30 = **100 primaries**, ×2 with replicas = 200 shards
 
 **Delivery semantics cost:** at-most-once is free; at-least-once costs you idempotency handling at the consumer; exactly-once costs **10–30% throughput** and only works within the system's transactional boundary. Say this — interviewers love it.
 
+### How many topics, queues and streams can each system hold?
+
+A frequently asked, rarely answered question — the namespace limit is often what forces a redesign (e.g. "a topic per user" almost never works).
+
+| System | Topic / queue / stream capacity | What actually constrains it |
+|---|---|---|
+| **Kafka (ZooKeeper)** | **~10k–50k topics**, ≤ **200,000 partitions** per cluster | Partitions, not topics: metadata in ZK, controller failover time, open file handles (3+ files per partition) |
+| **Kafka (KRaft)** | **Millions of partitions** tested (~2M); 100k+ topics | Controller metadata log; per-partition memory on brokers |
+| **Apache Pulsar** | **Millions of topics** per cluster; ~10k–50k per broker | Topics are cheap (BookKeeper ledgers); designed for topic-per-user patterns |
+| **RabbitMQ** | **10k–100k queues** per node | Each queue is an Erlang process (~10–50 KB idle); a million queues needs sharding across nodes |
+| **NATS / NATS JetStream** | **Millions of subjects** (core NATS keeps no per-subject state); JetStream streams in the thousands | Subject wildcards make "subject per user" natural |
+| **Amazon SQS** | **1M queues** per account (soft); throughput per queue unlimited (standard) | Account quota, not performance |
+| **Amazon SNS** | **100,000 topics** per account; 12.5M subscriptions per topic | Account quota |
+| **Amazon Kinesis** | **500 shards per stream** default (raisable to 10k+); 50–500 streams per account | Shard quota per region |
+| **Google Pub/Sub** | **10,000 topics per project**, 10,000 subscriptions per topic | Project quota |
+| **Azure Event Hubs** | **10 hubs per namespace** (Standard), 32 partitions per hub | Namespace tier |
+| **Redis Pub/Sub / Streams** | Millions of channels (no persistent state per channel) | Memory for Streams; channels are free |
+
+**Design rule:** if your design wants **one topic per user or per entity**, only Pulsar, NATS and SQS are comfortable there. On Kafka you use **one topic partitioned by key** and let the key provide per-entity ordering — that is almost always the expected answer.
+
 ---
 
-## 13. Stream processing: Flink, Spark, Kafka Streams
+## 16. Stream processing: Flink, Spark, Kafka Streams
 
 | Framework | Throughput | Latency | State | Notes |
 |---|---|---|---|---|
@@ -715,7 +923,33 @@ For 3 TB of logs: 3,000 / 30 = **100 primaries**, ×2 with replicas = 200 shards
 
 ---
 
-## 14. Object storage and CDN
+## 17. Workflow orchestration and background jobs
+
+Almost every design ends up with "and then we process it asynchronously." These are the engines and their limits.
+
+| System | Throughput | Scheduling latency | Hard limits |
+|---|---|---|---|
+| **Celery** (Python) | **1k–10k tasks/s** per cluster; ~100–1,000/s per worker | 10–100 ms via Redis/RabbitMQ | Task payload should stay < 100 KB — pass IDs, not blobs |
+| **Sidekiq** (Ruby) | 1k–10k jobs/s | 10–50 ms | Redis-backed; 25 threads/process typical |
+| **BullMQ / RQ / Resque** | 1k–20k jobs/s | 10–50 ms | Redis sorted sets for delayed jobs |
+| **Apache Airflow** | **1k–10k DAGs**, 10k+ tasks/day | **1–30 s per task** (scheduler loop) | Batch tool — **not** for sub-second work; realistic min schedule ~1–5 min; default parallelism 32 |
+| **Temporal / Cadence** | 1k–100k workflow starts/s (cluster) | 10–100 ms | **Workflow history capped at 51,200 events / 50 MB** → `continue-as-new`; activity/task queue ~10k/s per partition |
+| **AWS Step Functions (Standard)** | **2,000 state transitions/s** per account (soft) | 50–500 ms | **25,000 events per execution**, 1-year max duration |
+| **AWS Step Functions (Express)** | **100,000 executions/s** | ~10 ms | **5 minute** max duration, at-least-once |
+| **Kubernetes CronJob / cron** | — | **1-minute granularity**, ±seconds of skew | No exactly-once guarantee — jobs must be idempotent |
+| **Quartz / db-backed schedulers** | 100–10k jobs/s | 100 ms–1 s | Lock contention on the jobs table is the usual bottleneck |
+
+**Worker-pool sizing (Little's Law again):**
+```
+workers = arrival_rate × job_duration
+```
+1,000 jobs/s × 2 s each = **2,000 concurrent workers**; at 4 jobs per core that is ~500 cores. If jobs take 30 s, the same rate needs 30,000 concurrent workers — which is when you redesign, not scale.
+
+**Queue health numbers:** alert when queue depth exceeds **1–5 minutes of drain time** (`depth / drain_rate`), not on an absolute count. Retries: **3–5 attempts** with exponential backoff, then a **dead-letter queue**; DLQ growth is the canary. Delayed jobs at scale: a Redis sorted set keyed by run-at timestamp handles **100k+ scheduled jobs/s**; beyond a few million pending, use a time-bucketed table.
+
+---
+
+## 18. Object storage and CDN
 
 ### S3 / GCS / Azure Blob
 
@@ -752,9 +986,29 @@ For 3 TB of logs: 3,000 / 30 = **100 primaries**, ×2 with replicas = 200 shards
 | Typical asset TTL | 1 year (immutable, hashed filenames) |
 | Cost | $0.02–0.09/GB egress (usually cheaper than origin egress) |
 
+### File sync, chunking, dedup and erasure coding
+
+The Dropbox/Google Drive family of questions lives on these numbers.
+
+| Metric | Value |
+|---|---|
+| **Fixed chunk size** (Dropbox-style) | **4 MB** |
+| Content-defined chunking (rolling hash) | Average **1–8 MB**, min 256 KB, max 16 MB — survives byte insertions |
+| Chunk fingerprint | SHA-256 (32 B) per chunk → **~8 B of index per MB of data** |
+| Cross-user dedup ratio | **2–10×** for typical corpora (much higher for shared corporate files) |
+| Delta sync saving | Uploads only changed chunks — often **1–5%** of file size |
+| Metadata per file | 1–2 KB (name, version, chunk list, ACL) → 1B files ≈ **1–2 TB of metadata** |
+| Sync conflict window | Detect via version vector; resolve LWW or keep both ("conflicted copy") |
+| **Replication (3×)** | **200% storage overhead**, fastest recovery |
+| **Erasure coding RS(6,3)** | **50% overhead**, tolerates 3 losses, reconstruct = read 6 chunks |
+| **Erasure coding RS(10,4)** | **40% overhead**, tolerates 4 losses — typical for cloud object stores |
+| EC reconstruct cost | Network-heavy: rebuilding 1 TB reads several TB — why EC suits cold data, replication suits hot data |
+| HDFS block size | **128 MB** (small files are the classic HDFS killer) |
+| S3 optimal object size | **> 1 MB**; millions of tiny objects waste request budget (see the per-prefix limits above) |
+
 ---
 
-## 15. OLAP and warehouses
+## 19. OLAP and warehouses
 
 | System | Scan rate | Query latency | Key numbers |
 |---|---|---|---|
@@ -773,9 +1027,20 @@ For 3 TB of logs: 3,000 / 30 = **100 primaries**, ×2 with replicas = 200 shards
 
 **OLTP vs OLAP separation:** you run analytics on the primary until roughly **100M rows / a few hundred GB**; beyond that, an analytical query that scans 10M rows will hold locks/IO and hurt your 1 ms transactional p99. Ship to a warehouse via CDC (10 ms–1 s lag) or batch ETL (5 min–24 h).
 
+### Lakehouse table formats
+
+| Format | Figure of merit |
+|---|---|
+| **Parquet** | Row group **128 MB**, page 1 MB; compresses **5–10×**; column pruning often reads **1–10%** of bytes |
+| **Apache Iceberg** | Target file size **128 MB – 1 GB**; snapshot-based time travel; metadata scales to **millions of files**; compaction needed when small files accumulate |
+| **Delta Lake** | Same file-size targets; `OPTIMIZE` + Z-order clustering; transaction log checkpoints every **10 commits** |
+| **Apache Hudi** | Copy-on-write (read-optimized) vs merge-on-read (write-optimized, 5–10× faster upserts) |
+| **The small-file problem** | 100k files of 1 MB scan **10–100× slower** than 1k files of 100 MB — schedule daily compaction |
+| Partitioning granularity | Aim for **≥ 1 GB per partition**; date-partitioning at hourly granularity on low volume is a common mistake |
+
 ---
 
-## 16. Time series and observability
+## 20. Time series and observability
 
 | System | Ingest | Cardinality limit | Storage per sample |
 |---|---|---|---|
@@ -800,7 +1065,7 @@ disk   ≈ active_series × samples_per_s × bytes_per_sample × retention
 
 ---
 
-## 17. Vector databases and ANN search
+## 21. Vector databases and ANN search
 
 | Metric | Value |
 |---|---|
@@ -834,7 +1099,47 @@ disk   ≈ active_series × samples_per_s × bytes_per_sample × retention
 
 ---
 
-## 18. Graph databases
+## 22. ML and LLM serving
+
+Modern interviews increasingly include a model in the request path. These numbers keep that realistic.
+
+### Classical ML serving
+
+| Stage | Latency | Throughput |
+|---|---|---|
+| Logistic regression / linear model | **10–100 µs** | 100k+ QPS per core |
+| Gradient-boosted trees (XGBoost/LightGBM, 500 trees) | **0.1–1 ms** | 5k–50k QPS per core |
+| Small neural net on CPU | 1–10 ms | 500–5,000 QPS per core |
+| Deep model on GPU (batch 1) | **1–10 ms** | Batching 8–64 gives **5–20× throughput** for +10–50 ms latency |
+| **Online feature fetch (the usual bottleneck)** | **1–10 ms p99** (Redis/DynamoDB/Feast) | Often 50–80% of total inference latency |
+| Two-stage recommender | Candidate gen (ANN) **5–20 ms** → ranking of 100–1,000 candidates **10–50 ms** | Total budget 50–150 ms |
+
+### Embeddings and LLMs
+
+| Metric | Value |
+|---|---|
+| Sentence-embedding throughput (MiniLM-class, GPU) | **1,000–10,000 texts/s** |
+| Same on CPU | **50–300 texts/s** |
+| Embedding API latency | 20–100 ms per batch |
+| **LLM time-to-first-token (TTFT)** | **200 ms – 2 s** (grows with prompt length; prefill is compute-bound) |
+| **LLM generation speed** | **20–100 tokens/s per stream**; 500–5,000 tokens/s aggregate per GPU with continuous batching |
+| Tokens per word (English) | **~1.3 tokens/word**; 1 token ≈ 4 characters |
+| Model weights memory (fp16) | **2 bytes × parameters** → 7B ≈ 14 GB, 70B ≈ 140 GB (2× 80 GB GPUs) |
+| Quantization (int8 / int4) | **2×/4× smaller**, 1–3× faster, small quality loss |
+| **KV cache per token** | **~0.1–0.5 MB** for 7B–70B models with GQA → a 32k-token context is **3–16 GB per concurrent request** |
+| Context windows (current generation) | 128k–1M tokens |
+| GPU cost | **$1–4/hour** (A10/L4) to **$2–10/hour** (A100/H100) on demand |
+| Hosted LLM API pricing | ~**$0.25–15 per million tokens** depending on model tier |
+| Guardrail / moderation pass | +**50–200 ms** |
+| **RAG end-to-end budget** | embed query 10–50 ms + vector search 10–50 ms + rerank 20–100 ms + generation **1–3 s** |
+
+**The sizing sentence:** *"At 100 requests/second with 500 output tokens each, that's 50,000 tokens/s. One H100 with continuous batching does roughly 2,000–5,000 tokens/s for a 70B model, so I need ~10–25 GPUs — or a smaller/quantized model, aggressive caching of common prompts, and streaming so TTFT is what the user feels."*
+
+**Cache the model layer too:** semantic caching of prompts (embedding similarity > 0.95) commonly deflects **20–40%** of LLM traffic, and prompt-prefix caching cuts prefill cost by 50–90% for long system prompts.
+
+---
+
+## 23. Graph databases
 
 | Metric | Value |
 |---|---|
@@ -850,7 +1155,106 @@ disk   ≈ active_series × samples_per_s × bytes_per_sample × retention
 
 ---
 
-## 19. Coordination: ZooKeeper, etcd, Consul, Raft
+## 24. Geospatial indexing
+
+Ride-hailing, delivery, "find nearby", geofencing — all of these need one of three encodings.
+
+### Geohash precision
+
+| Length | Cell size (approx) | Use |
+|---|---|---|
+| 4 | **39 × 20 km** | City |
+| 5 | **4.9 × 4.9 km** | District |
+| **6** | **1.2 × 0.6 km** | **Neighborhood — typical "nearby" bucket** |
+| 7 | 153 × 153 m | Block |
+| 8 | 38 × 19 m | Building |
+| 9 | 4.8 × 4.8 m | Doorway |
+| 12 | 3.7 × 1.9 cm | Surveying |
+
+Geohash is a string prefix, so **prefix match = bounding box** — it works directly as a key in Redis, DynamoDB or any B-tree index. Its weakness: cells are rectangular and **neighbors can differ entirely in prefix at boundaries**, so you always query the cell plus its 8 neighbors.
+
+### S2 (Google) and H3 (Uber)
+
+| S2 level | Average cell area | | H3 resolution | Average hexagon area | Edge length |
+|---|---|---|---|---|---|
+| 8 | ~1,300 km² | | 5 | 252 km² | 8.5 km |
+| 10 | ~81 km² | | 6 | 36 km² | 3.2 km |
+| 12 | ~5 km² | | **7** | **5.2 km²** | 1.2 km |
+| 13 | ~1.3 km² | | **8** | **0.74 km²** | **461 m** |
+| 16 | ~20,000 m² | | **9** | **0.105 km²** | **174 m** |
+| 20 | ~80 m² | | 10 | 0.015 km² | 66 m |
+| 30 | **~1 cm²** | | 12 | 307 m² | 9 m |
+
+**H3's advantage:** hexagons have **6 equidistant neighbors** (squares have 4 near + 4 diagonal at 1.41× the distance), which makes ring queries and smoothing uniform. `k-ring(1) = 7 cells`, `k-ring(2) = 19`, `k-ring(k) = 3k² + 3k + 1`.
+
+**Worked query:** "drivers within 5 km" at H3 resolution 8 covers `π × 5² / 0.74 ≈ 106 cells`. With driver positions in Redis as one set per cell, that is ~106 pipelined lookups ≈ **2–10 ms**. Drop to resolution 7 and it is ~15 cells but coarser filtering.
+
+### Engine numbers
+
+| Engine | Figure of merit |
+|---|---|
+| **Redis GEO** (sorted set of 52-bit geohashes) | `GEOSEARCH` **0.5–5 ms** for thousands of results; 100k+ ops/s; ~100 B per member |
+| **PostGIS** (GiST index) | `ST_DWithin` **1–20 ms** over millions of points; 10M+ rows per node fine |
+| **Elasticsearch geo_point** | 10–50 ms, combines with text filters |
+| **MongoDB 2dsphere** | 1–10 ms |
+| **Quadtree (in memory)** | O(log n) lookup, ~50–100 B per point; rebalancing on dense cities is the cost |
+| **DynamoDB + geohash prefix as PK** | Single-digit ms, but you manage the neighbor fan-out yourself |
+
+---
+
+## 25. Real-time media, live streaming and notifications
+
+### WebRTC and video conferencing
+
+| Metric | Value |
+|---|---|
+| Peer-to-peer glass-to-glass latency | **50–200 ms** |
+| Via **SFU** (selective forwarding — forwards streams, no transcode) | **+20–50 ms**, ~**0.1–0.5 vCPU per participant** |
+| Via **MCU** (mixes streams, transcodes) | **+100–300 ms**, **1–2 vCPU per participant** — 10× the cost of an SFU |
+| SFU capacity per 16-core node | **500–2,000 concurrent streams** |
+| Bandwidth per HD stream | 1–2 Mbps → 1,000 streams ≈ **1–2 Gbps per node** |
+| Audio (Opus) | **24–64 kbps**, 20 ms frames |
+| Video bitrates | 360p **0.4 Mbps** · 720p **1–2 Mbps** · 1080p **2–4 Mbps** · 4K **15–25 Mbps** |
+| Jitter buffer | **20–200 ms** adaptive |
+| Acceptable packet loss | **< 1%** good, 1–3% degraded, **> 5%** unusable (FEC/NACK/RED mitigate) |
+| Mouth-to-ear target (ITU) | **< 150 ms** one way for natural conversation; > 400 ms is unusable |
+| NAT traversal | STUN works for ~80–85% of peers; **TURN relays the remaining 15–20%** — budget relay bandwidth for 1 in 5 users |
+| Simulcast | 3 layers (e.g. 180p/360p/720p) ≈ **1.5–2× uplink**, lets the SFU adapt per receiver |
+
+### Live and on-demand streaming
+
+| Protocol | Latency | Note |
+|---|---|---|
+| HLS / DASH (standard) | **6–30 s** (segments of 2–10 s × ~3 buffered) | Universally supported, CDN-friendly |
+| **LL-HLS / LL-DASH** | **2–5 s** | Chunked transfer |
+| **WebRTC** | **< 500 ms** | Interactive; expensive to scale |
+| RTMP (ingest) | 2–5 s | Legacy ingest standard |
+| SRT / RIST (contribution) | < 1 s | Lossy-network contribution links |
+
+| Video pipeline metric | Value |
+|---|---|
+| Transcoding cost | **1–5 core-hours per hour of video per rendition** (CPU); **10–20× faster on GPU/ASIC** |
+| Renditions per title (ABR ladder) | **4–8** |
+| Storage per hour of content, all renditions | **~10 GB** |
+| Startup (join) time target | **< 2 s**; rebuffer ratio target **< 0.5%** |
+| Segment size | **2–10 s** (smaller = lower latency, more requests) |
+
+### Push notifications, email and SMS
+
+| Channel | Throughput | Payload | Notes |
+|---|---|---|---|
+| **APNs (Apple)** | Thousands/s per HTTP/2 connection; scale with connections | **4 KB** | Feedback/unregistered tokens must be pruned |
+| **FCM (Android/Web)** | **~600,000 messages/minute** per project default (≈ 10k/s) | 4 KB | Topic fan-out handled server-side |
+| Mass fan-out reality | 10M notifications ÷ 10k/s = **~17 minutes** — parallelize workers and prioritize | | Stagger to avoid a thundering herd back into your API |
+| **WebSocket push (own infra)** | 50k–200k connections/node (see the app-server section) | — | Lowest latency, highest operational cost |
+| **Email (SES)** | **14–50 msg/s** default, ramps to thousands | 10 MB | Warm up IPs or land in spam |
+| **SMS (Twilio)** | **1 msg/s per long code**, ~100/s short code, 10-DLC tiers | 160 chars | Cost $0.005–0.08 per message dominates design |
+
+**The notification fan-out trap:** sending 10M pushes in one burst brings 10M users back to your API within ~60 seconds — a **~170k rps spike**. Always quote the return-traffic number, not just the send rate, and stagger delivery over 5–30 minutes.
+
+---
+
+## 26. Coordination: ZooKeeper, etcd, Consul, Raft
 
 | System | Read throughput | Write throughput | Limits |
 |---|---|---|---|
@@ -868,7 +1272,7 @@ disk   ≈ active_series × samples_per_s × bytes_per_sample × retention
 
 ---
 
-## 20. Storage hardware
+## 27. Storage hardware
 
 | Device | Random IOPS (4 KB) | Sequential throughput | Latency | Capacity |
 |---|---|---|---|---|
@@ -894,7 +1298,8 @@ disk   ≈ active_series × samples_per_s × bytes_per_sample × retention
 - Never fill a disk past **70–80%** — SSD garbage collection and LSM compaction both need headroom.
 
 ---
-## 21. Serverless and edge
+
+## 28. Serverless and edge
 
 | Metric | AWS Lambda | Notes |
 |---|---|---|
@@ -919,7 +1324,7 @@ disk   ≈ active_series × samples_per_s × bytes_per_sample × retention
 
 ---
 
-## 22. Kubernetes and orchestration limits
+## 29. Kubernetes and orchestration limits
 
 | Metric | Value |
 |---|---|
@@ -928,7 +1333,7 @@ disk   ≈ active_series × samples_per_s × bytes_per_sample × retention
 | Total pods per cluster | **150,000** |
 | Total containers per cluster | 300,000 |
 | Services per cluster (iptables mode) | degrades past ~5,000; **IPVS mode** for more |
-| etcd backing store | keep under **2 GB** (see §19) |
+| etcd backing store | keep under **2 GB** (see the coordination section) |
 | Pod startup (image cached) | **1–5 s**; with image pull **10–60 s** |
 | HPA reaction time | **15–60 s** (metrics window + stabilization) |
 | Cluster autoscaler node provisioning | **1–5 min** |
@@ -941,7 +1346,7 @@ disk   ≈ active_series × samples_per_s × bytes_per_sample × retention
 
 ---
 
-## 23. Serialization, compression and protocol overhead
+## 30. Serialization, compression and protocol overhead
 
 | Format | Encode/decode speed | Size vs JSON | Notes |
 |---|---|---|---|
@@ -977,9 +1382,23 @@ disk   ≈ active_series × samples_per_s × bytes_per_sample × retention
 
 **Rule to quote:** switching a chatty internal service from REST/JSON to gRPC/protobuf typically cuts p99 by **30–50%** and CPU by **2–3×**. Switching a public API for the same reason is usually not worth the ecosystem cost.
 
+### Hash function throughput
+
+| Function | Speed (per core) | Use |
+|---|---|---|
+| **xxHash3 / wyhash** | **10–30 GB/s** | Hash tables, checksums, sharding |
+| CRC32C (hardware) | **10–20 GB/s** | Storage/network integrity |
+| **MurmurHash3** | 3–6 GB/s | Consistent hashing, bloom filters |
+| SipHash-1-3 | 1–3 GB/s | Hash-flooding-resistant keys |
+| **SHA-256 (with SHA-NI)** | **1–2 GB/s** | Content addressing, signatures |
+| MD5 | ~500 MB/s | Legacy checksums only — broken for security |
+| **bcrypt / Argon2** | **~10 hashes/s** (by design) | Passwords only (see the auth section) |
+
+The 8-order-of-magnitude gap between xxHash and bcrypt is the entire point: **fast hashes for data structures, deliberately slow hashes for secrets.**
+
 ---
 
-## 24. Probabilistic data structures
+## 31. Probabilistic data structures
 
 These earn a lot of credit because they turn "impossible memory" into "kilobytes."
 
@@ -997,7 +1416,39 @@ These earn a lot of credit because they turn "impossible memory" into "kilobytes
 
 ---
 
-## 25. Availability, reliability and error budgets
+## 32. Client-side, mobile and frontend budgets
+
+Backend-heavy candidates forget that the user's latency budget starts in the browser.
+
+| Metric | Target |
+|---|---|
+| **Largest Contentful Paint (LCP)** | **< 2.5 s** (Core Web Vital) |
+| **Interaction to Next Paint (INP)** | **< 200 ms** |
+| **Cumulative Layout Shift (CLS)** | **< 0.1** |
+| Time to First Byte | < 800 ms |
+| JS bundle for "interactive in 5 s on 3G" | **< 170 KB gzipped** |
+| Median real-world page weight | **~2 MB** (about half of it images) |
+| Requests per page | 50–100 is fine over HTTP/2; each costs ~0 RTT after the first |
+| Image formats | **WebP/AVIF are 25–50% smaller** than JPEG at equal quality |
+| Critical CSS inline budget | < 14 KB (fits the first TCP congestion window) |
+| Mobile app cold start | **< 2 s** (users abandon past ~3 s) |
+| localStorage quota | **5–10 MB** |
+| IndexedDB quota | 50 MB – several GB (browser/disk dependent) |
+| Mobile background sync interval | **15 min** minimum on iOS/Android schedulers |
+| Battery-friendly polling | **≥ 5 min**, or push instead |
+| Offline conflict strategy | LWW for simple fields; **CRDT** for collaborative documents |
+
+**Why it belongs in a backend interview:** a 200 ms API improvement is invisible if the client ships a 3 MB bundle, and conversely, a client that polls every 5 seconds turns 1M users into **200k rps** of pure heartbeat traffic. Quote that conversion — polling interval → server load — whenever the design involves mobile clients:
+
+```
+server_rps = active_clients / polling_interval_seconds
+1M clients ÷ 30 s = 33,000 rps just to say "anything new?"
+```
+The same 1M clients on WebSockets cost **~5–20 connection nodes** and near-zero request volume.
+
+---
+
+## 33. Availability, reliability and error budgets
 
 | Availability | Downtime/year | Downtime/month | Downtime/week |
 |---|---|---|---|
@@ -1026,9 +1477,53 @@ These earn a lot of credit because they turn "impossible memory" into "kilobytes
 
 **Retry math to be careful with:** naive retries multiply load during an incident. If every client retries 3×, a degraded service sees **4× traffic** at exactly the worst moment. Quote *retry budgets* (cap retries at ~10% of requests) and *jitter*.
 
+### Security and abuse figures worth knowing
+
+| Metric | Value |
+|---|---|
+| Largest observed volumetric DDoS | **several Tbps**; HTTP-layer attacks exceeding **100M+ requests/second** |
+| Practical origin capacity vs. that | Any single origin is ~4–6 orders of magnitude short → **absorption must happen at the edge/CDN/scrubbing tier** |
+| SYN flood defense | SYN cookies (no per-connection state until ACK) |
+| WAF rule evaluation | **0.1–1 ms** per request |
+| Bot traffic share of the internet | **~40–50%** of all requests — size capacity for it or filter it |
+| Credential-stuffing defense | Rate limit **5–10 login attempts/min per account**, exponential lockout, device fingerprinting |
+| Secrets rotation | 30–90 days; TLS certs 90 days automated |
+| Encryption overhead (AES-GCM with AES-NI) | **1–10 GB/s per core** — TLS in transit is essentially free; it is the *handshake* that costs (see the load-balancer section) |
+| Encryption at rest (disk/KMS) | **< 5%** throughput overhead |
+| Field-level encryption | Breaks indexes and range queries — call this out before proposing it |
+
 ---
 
-## 26. Cost figures of merit
+## 34. Multi-region, disaster recovery, RPO and RTO
+
+| Strategy | RPO (data loss) | RTO (downtime) | Relative cost |
+|---|---|---|---|
+| **Backup and restore** | **hours–24 h** | **hours** | 1.0× (cheapest) |
+| **Pilot light** (data replicated, compute off) | **minutes** | **10–60 min** | 1.1–1.3× |
+| **Warm standby** (scaled-down live stack) | **seconds** | **5–15 min** | 1.3–1.7× |
+| **Hot standby / active-passive** | **< 1 s** | **1–5 min** (mostly DNS + health checks) | ~2× |
+| **Active-active multi-region** | **~0** (or conflict-resolved) | **seconds** | **2–2.5×** + consistency complexity |
+
+| Mechanism | Number |
+|---|---|
+| Cross-region async replication lag | **100 ms – 1 s** typical (DynamoDB global tables < 1 s, Aurora Global ~1 s) |
+| S3 Cross-Region Replication | Minutes (99.99% within **15 min** with RTC) |
+| Cross-region *synchronous* write cost | **+60–100 ms per commit** — the reason active-active writes usually go last-writer-wins or partitioned-by-region |
+| DNS failover | TTL **30–60 s** + client cache → **1–5 min** real-world; health check detection 30–90 s |
+| Anycast / global load balancer failover | **seconds** (no DNS dependency) |
+| Database promotion (managed) | **30–120 s** |
+| Full restore of 1 TB | **30 min – 4 h** |
+| Backup schedule (typical) | Full weekly + incremental daily + **5–15 min** transaction log shipping |
+| Backup retention | 30 days operational, 1–7 years compliance |
+| DR drill cadence | **Quarterly** — an untested backup is not a backup |
+
+**Cell / blast-radius numbers:** cell-based architectures cap a single failure at **1/N of users** (typical N = 5–20 cells). Shuffle sharding with 8 nodes and 2 per customer gives **28 unique combinations** — one bad tenant affects ~7% of others instead of 100%. Deployment safety: canary at **1% → 5% → 25% → 100%** with 10–30 min bake times, and a rollback that completes in **< 5 minutes**.
+
+**Data residency:** GDPR/regional rules often force a region-pinned partition key (`region + user_id`), which conveniently also removes most cross-region write conflicts. Say that out loud — it turns a compliance constraint into an architectural simplification.
+
+---
+
+## 35. Cost figures of merit
 
 Money is a figure of merit too, and mentioning it distinguishes senior candidates.
 
@@ -1054,9 +1549,9 @@ Money is a figure of merit too, and mentioning it distinguishes senior candidate
 
 ---
 
-## 27. Six worked capacity estimates
+## 36. Nine worked capacity estimates
 
-### 27.1 URL shortener (Bitly-scale)
+### 36.1 URL shortener (Bitly-scale)
 
 ```
 Assumptions: 100M new URLs/day, 10:1 read:write
@@ -1067,7 +1562,7 @@ Keyspace: base62, 7 chars      = 62⁷ ≈ 3.5 trillion codes
 ```
 **Design implications:** 3,500 writes/s exceeds one comfortable Postgres primary's headroom for a growing table, and 18 TB/year forces sharding by hash of the short code. 35,000 reads/s is a **cache problem, not a database problem** — with a 95% hit rate Redis serves 33k/s (well within one cluster) and the DB sees only ~1,700/s. Counters/analytics go to a stream, not to a synchronous `UPDATE` (which would create a hot row).
 
-### 27.2 Twitter-like feed
+### 36.2 Twitter-like feed
 
 ```
 500M tweets/day       → 5,800 writes/s, peak 15,000/s
@@ -1077,7 +1572,7 @@ Average fanout        ≈ 200 followers → 5,800 × 200 = 1.2M timeline writes/
 ```
 **Design implications:** pure fanout-on-write costs 1.2M writes/s into a timeline store (feasible with Redis lists: 1.2M ops/s = ~10–20 Redis shards), but a celebrity with 100M followers would need 100M writes for one tweet — so you use the **hybrid**: fanout-on-write for normal users, fanout-on-read (merge at query time) for accounts above ~**100k followers**. Timeline cache: 200M users × 800 tweet IDs × 8 B ≈ **1.3 TB** of Redis — roughly 30–60 nodes.
 
-### 27.3 Chat / messaging (WhatsApp-scale)
+### 36.3 Chat / messaging (WhatsApp-scale)
 
 ```
 100B messages/day     → 1.2M messages/s, peak 3M/s
@@ -1087,7 +1582,7 @@ Message size ~200 B   → 20 TB/day, 7.3 PB/year (before replication)
 ```
 **Design implications:** connections dominate, not CPU. You need a connection tier (Go/Erlang, 200k–1M sockets per node) separate from a message tier, a session registry (which user is on which node — Redis, 500M entries × ~100 B = **50 GB**), and Cassandra/Scylla for message history (1.2M writes/s ÷ 100k writes/s per Scylla node ≈ **12–30 nodes with RF 3**). Kafka between the tiers absorbs bursts at ~1.2M msgs/s = **2–5 brokers of headroom, 120+ partitions**.
 
-### 27.4 Video streaming (Netflix/YouTube-scale)
+### 36.4 Video streaming (Netflix/YouTube-scale)
 
 ```
 Bitrates: 480p 1 Mbps | 720p 2.5 Mbps | 1080p 5 Mbps | 4K 15–25 Mbps
@@ -1097,7 +1592,7 @@ Transcoding: ~1–5× realtime per CPU core → 1 h video ≈ 0.5–2 core-hours
 ```
 **Design implications:** 50 Tbps is **impossible from origin** (a 100 Gbps datacenter uplink is 0.2% of it), so the answer is a CDN/edge-cache fleet — thousands of PoPs, 95%+ hit rate, HLS/DASH segments of **2–10 s**, and pre-positioning popular content. Origin only serves the long tail.
 
-### 27.5 Ride-hailing / location tracking
+### 36.5 Ride-hailing / location tracking
 
 ```
 1M active drivers, location ping every 4 s → 250,000 writes/s
@@ -1106,7 +1601,7 @@ Nearby-driver query: p99 < 100 ms, radius 5 km
 ```
 **Design implications:** 250k writes/s rules out a relational primary (10–20k/s). Use an in-memory geospatial index — Redis GEO / S2 cells / Uber's H3 hexagons — keyed by cell ID, with **last-write-wins** and TTL. History goes to Kafka → Cassandra/S3 asynchronously. Quote the resolution choice: H3 resolution 8 ≈ 0.7 km² hexagons, so a 5 km radius touches ~100 cells → ~100 Redis lookups ≈ 5–10 ms with pipelining.
 
-### 27.6 E-commerce checkout (correctness over scale)
+### 36.6 E-commerce checkout (correctness over scale)
 
 ```
 1M orders/day → 12 orders/s average, 100–500/s on Black Friday
@@ -1114,24 +1609,91 @@ Inventory decrement must be exact; payment must be idempotent
 ```
 **Design implications:** this is the case where you *should not* reach for eventual consistency. 500 TPS is trivially within a single PostgreSQL primary (5k–20k TPS), so use transactions, `SELECT … FOR UPDATE` or optimistic concurrency with a version column, an **idempotency key** per payment request (stored with a 24 h TTL), and the **outbox pattern** (write the event in the same transaction, ship via CDC with 10 ms–1 s lag) rather than a distributed transaction. Recognizing that the scale does *not* require exotic architecture is itself a senior signal.
 
+### 36.7 File sync / cloud drive (Dropbox-scale)
+
+```
+500M users, 50M DAU, 100 files changed/day each → 5B changes/day = 58,000 changes/s
+Average file 1 MB, 4 MB chunks, dedup 3× → 5 PB/day raw → ~1.7 PB/day stored
+Metadata: 100B files × 1.5 KB = 150 TB of metadata
+```
+**Design implications:** the *metadata* service is the hard part, not the bytes — 58k changes/s of small transactional updates is a sharded relational workload (by `user_id`), while the bytes go to object storage with content-addressed chunks and erasure coding at **1.4×** rather than 3× replication (saving ~1 PB/day of overhead). Notification of other devices goes over long-lived connections; delta sync means the average change uploads **~50–200 KB, not 1 MB**.
+
+### 36.8 Video conferencing (Zoom-scale)
+
+```
+10M concurrent participants, average meeting 5 people
+Each sends 1 stream at 1.5 Mbps, receives 4 → 10M × 1.5 Mbps uplink = 15 Tbps aggregate
+SFU capacity 1,000 streams/node → 10,000 SFU nodes
+```
+**Design implications:** SFU, never MCU — mixing 10M streams would cost **10–20M vCPUs**. Route participants to the nearest regional SFU (mouth-to-ear budget is **150 ms**, so a cross-continent hop of 100 ms is already the whole budget), use simulcast so each receiver gets a layer matching its bandwidth, and expect **15–20% of users to need TURN relays**, which is ~2–3 Tbps of relay capacity you must actually pay for.
+
+### 36.9 Search autocomplete / typeahead
+
+```
+100M searches/day → 1,160 QPS, peak 3,500 QPS
+Each keystroke queries: 5 keystrokes per search → 17,500 QPS of prefix lookups
+p99 budget: < 100 ms end to end, so < 20 ms server-side
+Corpus: 100M distinct queries, average 20 bytes
+```
+**Design implications:** 17,500 QPS at sub-20 ms rules out hitting a database per keystroke. A trie of the top few million prefixes with the top-10 completions precomputed at each node is **~1–5 GB in memory** — it fits on every application server, so the query never leaves the box. Rebuild the trie offline from query logs **hourly**, and debounce the client at **50–100 ms** so you cut keystroke traffic by 2–3× before it ever arrives.
+
 ---
 
-## 28. The one-page cheat sheet
+## 37. Interview mechanics: where the numbers go
+
+A 45–60 minute system design interview has a predictable shape, and the numbers belong in specific places.
+
+| Phase | Time | What you produce | Numbers to state |
+|---|---|---|---|
+| **Requirements and scope** | **5–10 min** | Functional list, 2–3 non-functional targets, explicit out-of-scope | DAU, latency SLO, availability target, read:write ratio |
+| **Back-of-envelope estimation** | **3–5 min** | QPS, storage/year, bandwidth, memory for cache | Average *and* peak (3×), bytes per record |
+| **API and data model** | **5 min** | 3–5 endpoints, core entities, keys | Payload sizes, page sizes, partition/shard key |
+| **High-level design** | **10–15 min** | The box diagram, data flow for the main path | Instance counts, replication factor, cache hit rate |
+| **Deep dive** | **10–15 min** | One or two components at real depth | Thresholds: when to shard, partition counts, timeouts |
+| **Bottlenecks, failure, wrap-up** | **3–5 min** | What breaks first, how you'd detect and mitigate it | Utilization headroom, error budget, failover times |
+
+**Scorecard behaviors that numbers unlock:**
+- *Scope control:* "10M DAU, not 10B — so one region and a single sharded database is honest."
+- *Justified tradeoffs:* "Strong consistency here costs 60–100 ms cross-region, so I'll keep writes region-pinned."
+- *Bottleneck identification:* "The first thing to fail is the 10k-writes/s primary at ~2× growth."
+- *Headroom thinking:* "I size for 3× peak and 60–70% utilization, so 16 shards, not 6."
+- *Knowing when not to scale:* "500 TPS fits one Postgres node — the complexity isn't justified."
+
+**Three phrases to keep in your pocket:**
+1. *"Let me state my assumptions so you can correct them."*
+2. *"That's roughly X — within an order of magnitude, which is all I need to pick the architecture."*
+3. *"At 3× growth this component breaks first, and here's the migration path."*
+
+---
+
+## 38. The one-page cheat sheet
 
 **Latency**
-`L1 1 ns · RAM 100 ns · NVMe 50 µs · same-DC RTT 0.5 ms · cross-AZ 1 ms · US→EU 90 ms · HDD seek 8 ms`
+`L1 1 ns · RAM 100 ns · NVMe 50 µs · same-DC RTT 0.5 ms · cross-AZ 1 ms · US→EU 90 ms · HDD seek 8 ms · TLS 1.3 = 1 RTT`
 
 **Throughput per box**
-`App server 1k–5k rps · NGINX 50k–500k rps · Redis 100k ops/s (1M pipelined) · Postgres 20k reads/s, 10k writes/s · MySQL 50k reads/s · Cassandra 20k writes/s · Scylla 200k+ · Elasticsearch 20k docs/s indexing · Kafka broker 100+ MB/s · S3 3,500 writes/s per prefix`
+`App server 1k–5k rps · NGINX 50k–500k rps · Redis 100k ops/s (1M pipelined) · Postgres 20k reads/s, 10k writes/s · MySQL 50k reads/s · Cassandra 20k writes/s · Scylla 200k+ · Elasticsearch 20k docs/s indexing · Kafka broker 100+ MB/s · S3 3,500 writes/s per prefix · SFU 1k streams · bcrypt 10 hashes/s per core`
 
 **Capacity thresholds**
-`Postgres partition at 100M rows, shard at 1–2 TB · MySQL shard at 500 GB–1 TB · Redis shard at 25–50 GB · Cassandra partition < 100 MB, node 1–2 TB · Dynamo partition 3,000 RCU / 1,000 WCU / 10 GB, item 400 KB · ES shard 10–50 GB, heap ≤ 31 GB · Kafka ≤ 4,000 partitions/broker, message ≤ 1 MB · Mongo doc ≤ 16 MB · etcd ≤ 8 GB · Prometheus ≤ 10M series`
+`Postgres partition at 100M rows, shard at 1–2 TB · MySQL shard at 500 GB–1 TB · Redis shard at 25–50 GB · Cassandra partition < 100 MB, node 1–2 TB · Dynamo partition 3,000 RCU / 1,000 WCU / 10 GB, item 400 KB · ES shard 10–50 GB, heap ≤ 31 GB · Kafka ≤ 4,000 partitions/broker, message ≤ 1 MB · Mongo doc ≤ 16 MB · etcd ≤ 8 GB · Prometheus ≤ 10M series · Temporal history ≤ 50 MB · Lambda 15 min / 10 GB`
+
+**Namespaces**
+`Kafka 200k partitions (ZK) / millions (KRaft) · Pulsar millions of topics · RabbitMQ 10k–100k queues/node · Kinesis 500 shards/stream · Pub/Sub 10k topics/project · SNS 100k topics`
+
+**IDs, clocks, geo**
+`Snowflake 64-bit = 41 ts + 10 node + 12 seq → 4M IDs/s/node · UUIDv7 for index locality · NTP ±1–50 ms · geohash-6 = 1.2 km · H3 res 8 = 0.74 km² · S2 L30 = 1 cm²`
+
+**Consistency**
+`R + W > N · quorum write ≈ 2–5 ms in-region, 60–100 ms cross-region · 2PC = 2 RTT and blocking · async replica lag 1 ms–1 s · read-your-writes = pin to primary 1–5 s`
 
 **Conversions**
-`1M/day ≈ 12 rps · 1B/day ≈ 11.6k rps · peak = 3× average · 86,400 s/day · 31.5M s/year · 1 ms RTT per 100 km`
+`1M/day ≈ 12 rps · 1B/day ≈ 11.6k rps · peak = 3× average · 86,400 s/day · 31.5M s/year · 1 ms RTT per 100 km · 1 token ≈ 4 chars · clients ÷ poll interval = rps`
 
 **Laws**
-`Concurrency = rps × latency (Little) · Queue delay explodes past 70–80% utilization · 5 serial 99.9% services = 99.5%`
+`Concurrency = rps × latency (Little) · Queue delay explodes past 70–80% utilization · 5 serial 99.9% services = 99.5% · 99.99% = 52 min/year`
+
+**Resilience**
+`Retry budget ≤ 10% with full jitter · circuit breaker at 50% errors / 10 s · RPO/RTO: backup hours/hours, warm standby seconds/minutes, active-active ~0/seconds · autoscaling takes 1–5 min`
 
 **Design ladder (say it in this order)**
 `Index → cache → read replica → CDN → async/queue → partition → archive → shard → multi-region`
